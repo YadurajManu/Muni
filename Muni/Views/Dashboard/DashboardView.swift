@@ -206,51 +206,88 @@ struct BudgetProgressView: View {
                 .font(.system(size: Theme.subtitleSize, weight: .semibold))
                 .foregroundColor(Theme.text)
             
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Spent")
-                        .font(.system(size: Theme.captionSize))
-                        .foregroundColor(Theme.text.opacity(0.7))
-                    
-                    Spacer()
-                    
-                    Text("\(userManager.currency)\(monthlyExpenses, specifier: "%.2f") / \(userManager.currency)\(userManager.monthlyBudget, specifier: "%.2f")")
-                        .font(.system(size: Theme.captionSize, weight: .medium))
-                        .foregroundColor(Theme.text)
-                }
-                
-                // Progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        // Background
-                        RoundedRectangle(cornerRadius: Theme.cornerRadiusSmall)
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(height: 10)
-                        
-                        // Progress
-                        RoundedRectangle(cornerRadius: Theme.cornerRadiusSmall)
-                            .fill(progressColor)
-                            .frame(width: geometry.size.width * budgetPercentage, height: 10)
-                    }
-                }
-                .frame(height: 10)
-                
-                HStack {
-                    Text("Remaining")
-                        .font(.system(size: Theme.captionSize))
-                        .foregroundColor(Theme.text.opacity(0.7))
-                    
-                    Spacer()
-                    
-                    Text("\(userManager.currency)\(remainingBudget, specifier: "%.2f")")
-                        .font(.system(size: Theme.bodySize, weight: .semibold))
-                        .foregroundColor(userManager.monthlyBudget > monthlyExpenses ? Theme.income : Theme.expense)
-                }
+            if userManager.monthlyBudget <= 0 {
+                noBudgetView
+            } else {
+                budgetProgressView
             }
         }
         .padding()
         .background(Theme.background)
         .cardStyle()
+    }
+    
+    private var noBudgetView: some View {
+        VStack(spacing: Theme.paddingMedium) {
+            Text("No monthly budget set")
+                .font(.system(size: Theme.bodySize))
+                .foregroundColor(Theme.text.opacity(0.7))
+            
+            Text("Set a budget in your profile to track your spending")
+                .font(.system(size: Theme.captionSize))
+                .foregroundColor(Theme.text.opacity(0.5))
+                .multilineTextAlignment(.center)
+                
+            HStack {
+                Spacer()
+                
+                NavigationLink(destination: ProfileView()) {
+                    Text("Set Budget")
+                        .font(.system(size: Theme.bodySize, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(Theme.primary)
+                        .cornerRadius(Theme.cornerRadiusMedium)
+                }
+                
+                Spacer()
+            }
+        }
+    }
+    
+    private var budgetProgressView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Spent")
+                    .font(.system(size: Theme.captionSize))
+                    .foregroundColor(Theme.text.opacity(0.7))
+                
+                Spacer()
+                
+                Text("\(userManager.currency)\(monthlyExpenses, specifier: "%.2f") / \(userManager.currency)\(userManager.monthlyBudget, specifier: "%.2f")")
+                    .font(.system(size: Theme.captionSize, weight: .medium))
+                    .foregroundColor(Theme.text)
+            }
+            
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    RoundedRectangle(cornerRadius: Theme.cornerRadiusSmall)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 10)
+                    
+                    // Progress
+                    RoundedRectangle(cornerRadius: Theme.cornerRadiusSmall)
+                        .fill(progressColor)
+                        .frame(width: geometry.size.width * budgetPercentage, height: 10)
+                }
+            }
+            .frame(height: 10)
+            
+            HStack {
+                Text("Remaining")
+                    .font(.system(size: Theme.captionSize))
+                    .foregroundColor(Theme.text.opacity(0.7))
+                
+                Spacer()
+                
+                Text("\(userManager.currency)\(remainingBudget, specifier: "%.2f")")
+                    .font(.system(size: Theme.bodySize, weight: .semibold))
+                    .foregroundColor(userManager.monthlyBudget > monthlyExpenses ? Theme.income : Theme.expense)
+            }
+        }
     }
 }
 

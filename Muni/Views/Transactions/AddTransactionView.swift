@@ -189,6 +189,7 @@ struct AddTransactionView: View {
         )
         
         transactionManager.addTransaction(transaction)
+        transactionManager.saveTransactions()
         presentationMode.wrappedValue.dismiss()
     }
 }

@@ -13,6 +13,10 @@ class UserManager: ObservableObject {
     @Published var currency: String = "₹"
     @Published var monthlyBudget: Double = 0.0
     
+    init() {
+        loadUserData()
+    }
+    
     // Save user data to UserDefaults
     func saveUserData() {
         let defaults = UserDefaults.standard
@@ -27,11 +31,5 @@ class UserManager: ObservableObject {
         name = defaults.string(forKey: "userName") ?? ""
         currency = defaults.string(forKey: "userCurrency") ?? "₹"
         monthlyBudget = defaults.double(forKey: "monthlyBudget")
-    }
-    
-    // Complete onboarding
-    func completeOnboarding() {
-        saveUserData()
-        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
     }
 } 

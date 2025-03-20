@@ -136,12 +136,10 @@ struct TransactionsView: View {
     
     private func deleteTransactions(at offsets: IndexSet, inGroup key: String) {
         guard let transactions = groupedTransactions[key] else { return }
-        let indices = offsets.map { transactions[$0].id }
+        let transactionsToDelete = offsets.map { transactions[$0] }
         
-        for index in indices {
-            if let globalIndex = transactionManager.transactions.firstIndex(where: { $0.id == index }) {
-                transactionManager.deleteTransaction(at: IndexSet(integer: globalIndex))
-            }
+        for transaction in transactionsToDelete {
+            transactionManager.deleteTransaction(withID: transaction.id)
         }
     }
 }

@@ -26,6 +26,13 @@ class TransactionManager: ObservableObject {
         saveTransactions()
     }
     
+    func deleteTransaction(withID id: UUID) {
+        if let index = transactions.firstIndex(where: { $0.id == id }) {
+            transactions.remove(at: index)
+            saveTransactions()
+        }
+    }
+    
     func saveTransactions() {
         if let encoded = try? JSONEncoder().encode(transactions) {
             UserDefaults.standard.set(encoded, forKey: transactionsKey)

@@ -64,14 +64,4 @@ struct Transaction: Identifiable, Codable {
     var category: TransactionCategory
     var date: Date
     var note: String
-    
-    static func mockTransactions() -> [Transaction] {
-        return [
-            Transaction(amount: 50000, type: .income, category: .salary, date: Date().addingTimeInterval(-86400 * 15), note: "March Salary"),
-            Transaction(amount: 1200, type: .expense, category: .food, date: Date().addingTimeInterval(-86400 * 1), note: "Groceries"),
-            Transaction(amount: 500, type: .expense, category: .transportation, date: Date().addingTimeInterval(-86400 * 2), note: "Uber ride"),
-            Transaction(amount: 2500, type: .expense, category: .shopping, date: Date().addingTimeInterval(-86400 * 5), note: "New headphones"),
-            Transaction(amount: 2000, type: .income, category: .gift, date: Date().addingTimeInterval(-86400 * 8), note: "Birthday gift from mom")
-        ]
-    }
 } 

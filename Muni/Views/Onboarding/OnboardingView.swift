@@ -237,11 +237,19 @@ struct OnboardingView: View {
     }
     
     private func completeOnboarding() {
+        // Set default name if empty
         userManager.name = userName.isEmpty ? "User" : userName
+        
+        // Set budget if valid
         if let budget = Double(monthlyBudget) {
             userManager.monthlyBudget = budget
         }
-        userManager.completeOnboarding()
+        
+        // Save user data
+        userManager.saveUserData()
+        
+        // Complete onboarding
+        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
     }
 }
 

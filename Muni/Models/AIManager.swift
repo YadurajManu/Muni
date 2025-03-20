@@ -19,7 +19,7 @@ class AIManager: ObservableObject {
     @Published var isLoading = false
     
     private let apiKey = "AIzaSyD3Xbweiz-suIDVW_qvbCI4jYDwCzOqy1g"
-    private let apiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+    private let apiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"
     
     init() {
         // Add initial greeting message

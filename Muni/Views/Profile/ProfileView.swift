@@ -47,7 +47,10 @@ struct ProfileView: View {
                 Alert(
                     title: Text(alertTitle),
                     message: Text(alertMessage),
-                    dismissButton: .default(Text("OK"))
+                    primaryButton: .destructive(Text("Reset")) {
+                        performDataReset()
+                    },
+                    secondaryButton: .cancel()
                 )
             }
         }
@@ -228,10 +231,18 @@ struct ProfileView: View {
         alertMessage = "Are you sure you want to reset all your data? This action cannot be undone."
         showAlert = true
         
+        // These actions will only occur if the user confirms the alert
+        // We'll need to implement a proper alert confirmation action
+    }
+    
+    private func performDataReset() {
         // Reset user data and transactions
         userManager.name = ""
         userManager.monthlyBudget = 0.0
         userManager.saveUserData()
+        
+        // Reset onboarding status to force onboarding again
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
         
         transactionManager.transactions = []
         transactionManager.saveTransactions()
