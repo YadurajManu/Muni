@@ -22,6 +22,7 @@ enum TransactionCategory: String, Codable, CaseIterable {
     // Expense categories
     case food = "Food"
     case transportation = "Transportation"
+    case housing = "Housing"
     case entertainment = "Entertainment"
     case shopping = "Shopping"
     case bills = "Bills"
@@ -35,9 +36,10 @@ enum TransactionCategory: String, Codable, CaseIterable {
         case .salary: return "banknote"
         case .investment: return "chart.line.uptrend.xyaxis"
         case .gift: return "gift"
-        case .other: return "ellipsis.circle"
+        case .other: return "ellipsis.circle.fill"
         case .food: return "fork.knife"
         case .transportation: return "car"
+        case .housing: return "house.fill"
         case .entertainment: return "tv"
         case .shopping: return "bag"
         case .bills: return "doc.text"
@@ -49,7 +51,7 @@ enum TransactionCategory: String, Codable, CaseIterable {
     }
     
     static func expenseCategories() -> [TransactionCategory] {
-        return [.food, .transportation, .entertainment, .shopping, .bills, .health, .education, .travel, .miscellaneous]
+        return [.food, .transportation, .housing, .entertainment, .shopping, .bills, .health, .education, .travel, .miscellaneous]
     }
     
     static func incomeCategories() -> [TransactionCategory] {

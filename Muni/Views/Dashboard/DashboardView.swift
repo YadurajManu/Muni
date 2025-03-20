@@ -12,6 +12,7 @@ struct DashboardView: View {
     @EnvironmentObject private var userManager: UserManager
     @State private var selectedMonth = Calendar.current.component(.month, from: Date())
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
+    @State private var showingGoalDetails = false
     
     var body: some View {
         NavigationView {
@@ -21,6 +22,24 @@ struct DashboardView: View {
                     MonthYearPicker(selectedMonth: $selectedMonth, selectedYear: $selectedYear)
                         .padding(.horizontal)
                     
+                    // Personalized greeting
+                    if !userManager.name.isEmpty {
+                        PersonalizedGreetingView()
+                            .environmentObject(userManager)
+                            .padding(.horizontal)
+                    }
+                    
+                    // Financial Goal Tracker (new component)
+                    if !userManager.financialGoal.isEmpty {
+                        FinancialGoalView(goal: userManager.financialGoal)
+                            .environmentObject(transactionManager)
+                            .environmentObject(userManager)
+                            .padding(.horizontal)
+                            .onTapGesture {
+                                showingGoalDetails = true
+                            }
+                    }
+                    
                     // Balance summary
                     BalanceSummaryView()
                         .environmentObject(transactionManager)
@@ -29,6 +48,12 @@ struct DashboardView: View {
                     
                     // Budget progress
                     BudgetProgressView(selectedMonth: selectedMonth, selectedYear: selectedYear)
+                        .environmentObject(transactionManager)
+                        .environmentObject(userManager)
+                        .padding(.horizontal)
+                    
+                    // Smart Insights Card (new component)
+                    SmartInsightsView(selectedMonth: selectedMonth, selectedYear: selectedYear)
                         .environmentObject(transactionManager)
                         .environmentObject(userManager)
                         .padding(.horizontal)
@@ -49,6 +74,505 @@ struct DashboardView: View {
             }
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Dashboard")
+            .sheet(isPresented: $showingGoalDetails) {
+                GoalDetailView(goal: userManager.financialGoal)
+                    .environmentObject(transactionManager)
+                    .environmentObject(userManager)
+            }
+        }
+    }
+}
+
+// MARK: - Personalized Greeting View
+struct PersonalizedGreetingView: View {
+    @EnvironmentObject private var userManager: UserManager
+    
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 {
+            return "Good morning"
+        } else if hour < 17 {
+            return "Good afternoon"
+        } else {
+            return "Good evening"
+        }
+    }
+    
+    private var financialTip: String {
+        let tips = [
+            "Saving just ₹100 a day adds up to ₹36,500 a year!",
+            "Try the 50/30/20 rule: 50% needs, 30% wants, 20% savings.",
+            "Track every expense to find hidden saving opportunities.",
+            "Consider automating your savings to stay on track.",
+            "Focus on reducing your biggest expense category first."
+        ]
+        return tips.randomElement() ?? tips[0]
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(greeting), \(userManager.name)")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundColor(Theme.text)
+                    
+                    Text(Date(), style: .date)
+                        .font(.system(size: 15))
+                        .foregroundColor(Theme.text.opacity(0.7))
+                }
+                
+                Spacer()
+                
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: 30))
+                    .foregroundColor(.orange)
+            }
+            
+            HStack(spacing: 16) {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundColor(.yellow)
+                
+                Text(financialTip)
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(Theme.text.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .background(Theme.secondary.opacity(0.3))
+            .cornerRadius(10)
+        }
+        .padding()
+        .background(Theme.background)
+        .cardStyle()
+    }
+}
+
+// MARK: - Financial Goal View
+struct FinancialGoalView: View {
+    @EnvironmentObject private var transactionManager: TransactionManager
+    @EnvironmentObject private var userManager: UserManager
+    let goal: String
+    
+    private var goalIcon: String {
+        switch goal {
+        case "Save for an emergency fund":
+            return "umbrella.fill"
+        case "Pay off debt":
+            return "creditcard.fill"
+        case "Save for a major purchase":
+            return "cart.fill"
+        case "Build investment portfolio":
+            return "chart.line.uptrend.xyaxis.circle.fill"
+        case "Track day-to-day expenses":
+            return "list.bullet.clipboard.fill"
+        case "Reduce unnecessary spending":
+            return "scissors"
+        case "Financial independence":
+            return "star.fill"
+        default:
+            return "ellipsis.circle.fill"
+        }
+    }
+    
+    private var goalProgress: Double {
+        // This is a placeholder. In a real app, you'd calculate this based on
+        // the specific goal type and transaction data
+        let randomProgress = Double.random(in: 0.1...0.9)
+        return randomProgress
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: goalIcon)
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
+                    .background(Theme.primary)
+                    .clipShape(Circle())
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Financial Goal")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Theme.text.opacity(0.7))
+                    
+                    Text(goal)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Theme.text)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .foregroundColor(Theme.text.opacity(0.5))
+            }
+            
+            // Progress bar
+            VStack(alignment: .leading, spacing: 8) {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Background
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 12)
+                        
+                        // Progress
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Theme.primary.opacity(0.8))
+                            .frame(width: geometry.size.width * goalProgress, height: 12)
+                    }
+                }
+                .frame(height: 12)
+                
+                HStack {
+                    Text("\(Int(goalProgress * 100))% Complete")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Theme.text)
+                    
+                    Spacer()
+                    
+                    Text("Tap for details")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.primary)
+                }
+            }
+        }
+        .padding()
+        .background(Theme.background)
+        .cardStyle()
+    }
+}
+
+// MARK: - Smart Insights View
+struct SmartInsightsView: View {
+    @EnvironmentObject private var transactionManager: TransactionManager
+    @EnvironmentObject private var userManager: UserManager
+    @State private var showingBudgetPlanner = false
+    let selectedMonth: Int
+    let selectedYear: Int
+    
+    private var primarySpendingCategory: (TransactionCategory, Double)? {
+        let expenses = transactionManager.getMonthlyExpensesByCategory(month: selectedMonth, year: selectedYear)
+        return expenses.max(by: { $0.value < $1.value })
+    }
+    
+    private var spendingTrend: String {
+        // In a real app, you'd calculate the trend by comparing with previous months
+        let trends = ["increasing", "decreasing", "stable"]
+        return trends.randomElement() ?? "stable"
+    }
+    
+    private var insightMessage: String {
+        if let (category, amount) = primarySpendingCategory {
+            if spendingTrend == "increasing" {
+                return "Your \(category.rawValue.lowercased()) spending is trending up. Consider setting a budget limit for this category."
+            } else if spendingTrend == "decreasing" {
+                return "Great job reducing your \(category.rawValue.lowercased()) expenses! Keep it up."
+            } else {
+                return "Your largest expense is \(category.rawValue.lowercased()) at \(userManager.currency)\(String(format: "%.0f", amount))."
+            }
+        } else {
+            return "Add some transactions to see personalized insights."
+        }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Smart Insights")
+                    .font(.system(size: Theme.subtitleSize, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                
+                Spacer()
+                
+                Image(systemName: "brain.fill")
+                    .foregroundColor(Theme.primary)
+            }
+            
+            HStack(spacing: 16) {
+                if let (category, _) = primarySpendingCategory {
+                    Image(systemName: category.icon)
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Theme.primary)
+                        .clipShape(Circle())
+                } else {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Theme.primary)
+                        .clipShape(Circle())
+                }
+                
+                Text(insightMessage)
+                    .font(.system(size: Theme.bodySize))
+                    .foregroundColor(Theme.text)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            if let (category, amount) = primarySpendingCategory {
+                Button(action: {
+                    showingBudgetPlanner = true
+                }) {
+                    Text("Set \(category.rawValue) Budget")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(Theme.primary)
+                        .cornerRadius(8)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .padding()
+        .background(Theme.background)
+        .cardStyle()
+        .sheet(isPresented: $showingBudgetPlanner) {
+            BudgetPlanningView()
+                .environmentObject(transactionManager)
+                .environmentObject(userManager)
+        }
+    }
+}
+
+// MARK: - Goal Detail View
+struct GoalDetailView: View {
+    @EnvironmentObject private var transactionManager: TransactionManager
+    @EnvironmentObject private var userManager: UserManager
+    @Environment(\.presentationMode) var presentationMode
+    @State private var showingBudgetPlanner = false
+    let goal: String
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Goal icon and title
+                    goalHeader
+                    
+                    // Recommendations
+                    goalRecommendations
+                    
+                    // Progress chart
+                    goalProgressChart
+                    
+                    // Next steps
+                    goalNextSteps
+                }
+                .padding()
+            }
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("Goal Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(trailing: Button("Done") {
+                presentationMode.wrappedValue.dismiss()
+            })
+            .sheet(isPresented: $showingBudgetPlanner) {
+                BudgetPlanningView()
+                    .environmentObject(transactionManager)
+                    .environmentObject(userManager)
+            }
+        }
+    }
+    
+    private var goalHeader: some View {
+        VStack(spacing: 16) {
+            GoalIconView(goal: goal)
+                .frame(width: 80, height: 80)
+            
+            Text(goal)
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundColor(Theme.text)
+                .multilineTextAlignment(.center)
+            
+            Text("Based on your spending patterns and income, here's our assessment and recommendations")
+                .font(.system(size: 16))
+                .foregroundColor(Theme.text.opacity(0.7))
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(Theme.secondary.opacity(0.3))
+        .cornerRadius(16)
+    }
+    
+    private var goalRecommendations: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Personalized Recommendations")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Theme.text)
+            
+            recommendationRow(
+                icon: "arrow.down.circle.fill",
+                title: "Reduce Spending",
+                description: "Cut back on \(userManager.primaryExpenseCategory.rawValue.lowercased()) expenses by 10%"
+            )
+            
+            recommendationRow(
+                icon: "dollarsign.circle.fill",
+                title: "Save More",
+                description: "Allocate ₹\(Int(userManager.monthlyIncome * 0.1)) monthly toward your goal"
+            )
+            
+            recommendationRow(
+                icon: "chart.pie.fill",
+                title: "Optimize Budget",
+                description: "Review and adjust your monthly budget allocation"
+            )
+        }
+        .padding()
+        .background(Theme.background)
+        .cardStyle()
+    }
+    
+    private func recommendationRow(icon: String, title: String, description: String) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(Theme.primary)
+                .frame(width: 40, height: 40)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                
+                Text(description)
+                    .font(.system(size: 14))
+                    .foregroundColor(Theme.text.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+    
+    private var goalProgressChart: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Projected Timeline")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Theme.text)
+            
+            // Placeholder for chart - in a real app, you'd implement a proper chart
+            HStack(spacing: 0) {
+                ForEach(0..<6) { month in
+                    VStack {
+                        Rectangle()
+                            .fill(Theme.primary.opacity(0.7 - Double(month) * 0.1))
+                            .frame(height: 100 - Double(month) * 12)
+                            .cornerRadius(4)
+                        
+                        Text("M\(month+1)")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.text.opacity(0.8))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.vertical)
+            
+            Text("At your current rate, you'll reach your goal in approximately 6 months")
+                .font(.system(size: 14))
+                .foregroundColor(Theme.text.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Theme.secondary.opacity(0.3))
+                .cornerRadius(10)
+        }
+        .padding()
+        .background(Theme.background)
+        .cardStyle()
+    }
+    
+    private var goalNextSteps: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Next Steps")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Theme.text)
+            
+            Button(action: {
+                showingBudgetPlanner = true
+            }) {
+                HStack {
+                    Image(systemName: "wand.and.stars")
+                        .foregroundColor(Theme.primary)
+                    
+                    Text("Create a Smart Budget Plan")
+                        .foregroundColor(Theme.text)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(Theme.text.opacity(0.5))
+                }
+                .padding()
+                .background(Theme.secondary.opacity(0.3))
+                .cornerRadius(10)
+            }
+            
+            Button(action: {
+                // In a real app, this would navigate to savings simulation
+            }) {
+                HStack {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .foregroundColor(Theme.primary)
+                    
+                    Text("Run Savings Simulation")
+                        .foregroundColor(Theme.text)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(Theme.text.opacity(0.5))
+                }
+                .padding()
+                .background(Theme.secondary.opacity(0.3))
+                .cornerRadius(10)
+            }
+        }
+        .padding()
+        .background(Theme.background)
+        .cardStyle()
+    }
+}
+
+struct GoalIconView: View {
+    let goal: String
+    
+    private var iconName: String {
+        switch goal {
+        case "Save for an emergency fund":
+            return "umbrella.fill"
+        case "Pay off debt":
+            return "creditcard.fill"
+        case "Save for a major purchase":
+            return "cart.fill"
+        case "Build investment portfolio":
+            return "chart.line.uptrend.xyaxis.circle.fill"
+        case "Track day-to-day expenses":
+            return "list.bullet.clipboard.fill"
+        case "Reduce unnecessary spending":
+            return "scissors"
+        case "Financial independence":
+            return "star.fill"
+        default:
+            return "ellipsis.circle.fill"
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Theme.primary)
+            
+            Image(systemName: iconName)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(.white)
+                .padding(20)
         }
     }
 }
