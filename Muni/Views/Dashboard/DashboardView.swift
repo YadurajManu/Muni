@@ -14,6 +14,9 @@ struct DashboardView: View {
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
     @State private var showingGoalDetails = false
     @State private var showingAIAssistant = false
+    @State private var showingQuickEntry = false
+    @State private var showingTransactionOptions = false
+    @State private var selectedQuickAction: QuickActionType? = nil
     
     var body: some View {
         NavigationView {
@@ -23,6 +26,14 @@ struct DashboardView: View {
                     MonthYearPicker(selectedMonth: $selectedMonth, selectedYear: $selectedYear)
                         .padding(.horizontal)
                     
+                    // Quick action shortcuts
+                    quickActionButtons
+                        .padding(.horizontal)
+                    
+                    // Budget countdown and daily average
+                    budgetInfoSection
+                        .padding(.horizontal)
+                    
                     // Personalized greeting
                     if !userManager.name.isEmpty {
                         PersonalizedGreetingView()
@@ -30,7 +41,7 @@ struct DashboardView: View {
                             .padding(.horizontal)
                     }
                     
-                    // Financial Goal Tracker (new component)
+                    // Financial Goal Tracker
                     if !userManager.financialGoal.isEmpty {
                         FinancialGoalView(goal: userManager.financialGoal)
                             .environmentObject(transactionManager)
@@ -53,7 +64,7 @@ struct DashboardView: View {
                         .environmentObject(userManager)
                         .padding(.horizontal)
                     
-                    // Smart Insights Card (new component)
+                    // Smart Insights
                     SmartInsightsView(selectedMonth: selectedMonth, selectedYear: selectedYear)
                         .environmentObject(transactionManager)
                         .environmentObject(userManager)
@@ -95,6 +106,218 @@ struct DashboardView: View {
                     .environmentObject(transactionManager)
                     .environmentObject(userManager)
             }
+            .sheet(isPresented: $showingQuickEntry) {
+                if let actionType = selectedQuickAction {
+                    QuickTransactionEntryView(
+                        transactionType: actionType == .income ? .income : .expense,
+                        presetCategory: actionType.defaultCategory,
+                        onSave: { newTransaction in
+                            transactionManager.addTransaction(newTransaction)
+                            selectedQuickAction = nil
+                            showingQuickEntry = false
+                            // Provide haptic feedback on success
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        }
+                    )
+                    .environmentObject(userManager)
+                }
+            }
+            .onAppear {
+                // Register for haptic feedback
+                UIImpactFeedbackGenerator(style: .medium).prepare()
+            }
+        }
+    }
+    
+    // New Quick Action buttons section
+    private var quickActionButtons: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 15) {
+                ForEach(QuickActionType.allCases) { actionType in
+                    Button(action: {
+                        // Light haptic feedback
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        selectedQuickAction = actionType
+                        showingQuickEntry = true
+                    }) {
+                        VStack(spacing: 8) {
+                            Image(systemName: actionType.iconName)
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .frame(width: 42, height: 42)
+                                .background(actionType.color)
+                                .clipShape(Circle())
+                            
+                            Text(actionType.title)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Theme.text)
+                        }
+                        .frame(width: 70)
+                    }
+                }
+                
+                Button(action: {
+                    // Show more options menu
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showingTransactionOptions = true
+                }) {
+                    VStack(spacing: 8) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 42, height: 42)
+                            .background(Color.gray)
+                            .clipShape(Circle())
+                        
+                        Text("More")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Theme.text)
+                    }
+                    .frame(width: 70)
+                }
+                .actionSheet(isPresented: $showingTransactionOptions) {
+                    ActionSheet(
+                        title: Text("Transaction Options"),
+                        message: Text("Select an action"),
+                        buttons: [
+                            .default(Text("Bulk Edit Transactions")) {
+                                // TODO: Navigate to bulk edit view
+                            },
+                            .default(Text("Create Recurring Transaction")) {
+                                // TODO: Navigate to recurring transaction setup
+                            },
+                            .cancel()
+                        ]
+                    )
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+    
+    // Budget countdown and daily average spending section
+    private var budgetInfoSection: some View {
+        HStack(spacing: 15) {
+            // Days until budget refresh
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Budget Refreshes In")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.text.opacity(0.7))
+                
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(daysUntilMonthEnd)")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Theme.text)
+                    
+                    Text("days")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.text.opacity(0.8))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Theme.secondary.opacity(0.3))
+            .cornerRadius(12)
+            
+            // Daily spending average
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Daily Average")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.text.opacity(0.7))
+                
+                Text("\(userManager.currency)\(String(format: "%.0f", dailyAverage))")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(dailyAverage > recommendedDailySpend ? .red : Theme.text)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Theme.secondary.opacity(0.3))
+            .cornerRadius(12)
+        }
+    }
+    
+    // Computed properties for budget information
+    private var daysUntilMonthEnd: Int {
+        let calendar = Calendar.current
+        let today = Date()
+        guard let range = calendar.range(of: .day, in: .month, for: today),
+              let lastDay = calendar.date(from: calendar.dateComponents([.year, .month], from: calendar.startOfDay(for: today))),
+              let lastDayOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: lastDay) else {
+            return 0
+        }
+        let daysLeft = calendar.dateComponents([.day], from: today, to: lastDayOfMonth).day ?? 0
+        return max(1, daysLeft + 1) // Add 1 to include today
+    }
+    
+    private var dailyAverage: Double {
+        let currentExpenses = transactionManager.getMonthlyExpenses(
+            for: Calendar.current.component(.month, from: Date()),
+            year: Calendar.current.component(.year, from: Date())
+        )
+        let today = Calendar.current.component(.day, from: Date())
+        return today > 0 ? currentExpenses / Double(today) : currentExpenses
+    }
+    
+    private var recommendedDailySpend: Double {
+        let daysInMonth = Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
+        return userManager.monthlyBudget / Double(daysInMonth)
+    }
+}
+
+// Quick action types for the dashboard
+enum QuickActionType: String, CaseIterable, Identifiable {
+    case food = "Food"
+    case transport = "Transport"
+    case shopping = "Shopping"
+    case entertainment = "Entertainment"
+    case income = "Income"
+    
+    var id: String { self.rawValue }
+    
+    var title: String { self.rawValue }
+    
+    var iconName: String {
+        switch self {
+        case .food:
+            return "fork.knife"
+        case .transport:
+            return "car.fill"
+        case .shopping:
+            return "bag.fill"
+        case .entertainment:
+            return "film.fill"
+        case .income:
+            return "indianrupeesign.circle.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .food:
+            return .orange
+        case .transport:
+            return .blue
+        case .shopping:
+            return .purple
+        case .entertainment:
+            return .pink
+        case .income:
+            return .green
+        }
+    }
+    
+    var defaultCategory: TransactionCategory {
+        switch self {
+        case .food:
+            return .food
+        case .transport:
+            return .transportation
+        case .shopping:
+            return .shopping
+        case .entertainment:
+            return .entertainment
+        case .income:
+            return .salary
         }
     }
 }

@@ -65,8 +65,9 @@ class TransactionManager: ObservableObject {
     }
     
     func getTransactionsForMonth(month: Int, year: Int) -> [Transaction] {
+        let calendar = Calendar.current
         return transactions.filter { transaction in
-            let components = Calendar.current.dateComponents([.month, .year], from: transaction.date)
+            let components = calendar.dateComponents([.month, .year], from: transaction.date)
             return components.month == month && components.year == year
         }
     }
@@ -108,5 +109,131 @@ class TransactionManager: ObservableObject {
         return monthlyTransactions
             .filter { $0.type == .expense }
             .reduce(0) { $0 + $1.amount }
+    }
+    
+    // Update transaction method for bulk edit operations
+    func updateTransaction(_ transaction: Transaction) {
+        if let index = transactions.firstIndex(where: { $0.id == transaction.id }) {
+            transactions[index] = transaction
+            saveTransactions()
+        }
+    }
+    
+    // Remove transaction by ID
+    func removeTransaction(withID id: UUID) {
+        transactions.removeAll(where: { $0.id == id })
+        saveTransactions()
+    }
+    
+    // Add a recurring transaction
+    func addRecurringTransaction(_ transaction: Transaction, frequency: RecurringFrequency, endDate: Date?) {
+        let recurringTransaction = RecurringTransaction(
+            baseTransaction: transaction,
+            frequency: frequency,
+            startDate: transaction.date,
+            endDate: endDate
+        )
+        
+        // Save recurring transaction
+        saveRecurringTransaction(recurringTransaction)
+        
+        // Also add the first instance as a regular transaction
+        addTransaction(transaction)
+    }
+    
+    // Process recurring transactions (call this on app launch and periodically)
+    func processRecurringTransactions() {
+        let today = Date()
+        let calendar = Calendar.current
+        
+        for recurringTransaction in loadRecurringTransactions() {
+            // Calculate next occurrence date
+            if let nextDate = calculateNextOccurrence(for: recurringTransaction, after: today) {
+                // Check if next date is still within bounds
+                if let endDate = recurringTransaction.endDate, nextDate > endDate {
+                    continue
+                }
+                
+                // Create a new transaction based on recurring template
+                var newTransaction = recurringTransaction.baseTransaction
+                newTransaction.id = UUID() // New unique ID
+                newTransaction.date = nextDate
+                
+                // Add transaction
+                addTransaction(newTransaction)
+                
+                // Update lastProcessedDate to current date
+                updateLastProcessedDate(for: recurringTransaction.id, to: today)
+            }
+        }
+    }
+    
+    // Helper method to calculate next occurrence
+    private func calculateNextOccurrence(for recurringTransaction: RecurringTransaction, after date: Date) -> Date? {
+        let calendar = Calendar.current
+        let startDate = recurringTransaction.startDate
+        let lastProcessed = recurringTransaction.lastProcessedDate ?? startDate
+        
+        // If lastProcessed is after the reference date, no new transaction needed yet
+        if lastProcessed > date {
+            return nil
+        }
+        
+        // Calculate next date based on frequency
+        var nextDate: Date?
+        var dateComponents = DateComponents()
+        
+        switch recurringTransaction.frequency {
+        case .daily:
+            dateComponents.day = 1
+        case .weekly:
+            dateComponents.day = 7
+        case .biweekly:
+            dateComponents.day = 14
+        case .monthly:
+            dateComponents.month = 1
+        case .quarterly:
+            dateComponents.month = 3
+        case .yearly:
+            dateComponents.year = 1
+        }
+        
+        nextDate = calendar.date(byAdding: dateComponents, to: lastProcessed)
+        return nextDate
+    }
+    
+    // Persistence for recurring transactions
+    private func saveRecurringTransaction(_ recurringTransaction: RecurringTransaction) {
+        var recurringTransactions = loadRecurringTransactions()
+        
+        // Update if exists, otherwise add
+        if let index = recurringTransactions.firstIndex(where: { $0.id == recurringTransaction.id }) {
+            recurringTransactions[index] = recurringTransaction
+        } else {
+            recurringTransactions.append(recurringTransaction)
+        }
+        
+        if let encodedData = try? JSONEncoder().encode(recurringTransactions) {
+            UserDefaults.standard.set(encodedData, forKey: "recurringTransactions")
+        }
+    }
+    
+    private func loadRecurringTransactions() -> [RecurringTransaction] {
+        if let savedData = UserDefaults.standard.data(forKey: "recurringTransactions"),
+           let decodedTransactions = try? JSONDecoder().decode([RecurringTransaction].self, from: savedData) {
+            return decodedTransactions
+        }
+        return []
+    }
+    
+    private func updateLastProcessedDate(for id: UUID, to date: Date) {
+        var recurringTransactions = loadRecurringTransactions()
+        if let index = recurringTransactions.firstIndex(where: { $0.id == id }) {
+            recurringTransactions[index].lastProcessedDate = date
+            
+            if let encodedData = try? JSONEncoder().encode(recurringTransactions) {
+                UserDefaults.standard.set(encodedData, forKey: "recurringTransactions")
+            }
+        }
     }
 } 
