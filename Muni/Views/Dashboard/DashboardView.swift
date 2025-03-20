@@ -610,11 +610,15 @@ struct GoalDetailView: View {
                         VStack {
                             // Normalize height based on max value
                             let maxValue = projectedSavings.max() ?? 1
-                            let height = (projectedSavings[index] / maxValue) * 100
+                            // Ensure height is positive and never NaN or infinity
+                            let normalizedValue = projectedSavings[index] / maxValue
+                            let height: CGFloat = normalizedValue.isNaN || normalizedValue.isInfinite || normalizedValue < 0 
+                                ? 0 
+                                : CGFloat(normalizedValue * 100)
                             
                             Rectangle()
                                 .fill(Theme.primary.opacity(0.7 - Double(index) * 0.05))
-                                .frame(height: CGFloat(height))
+                                .frame(height: height)
                                 .cornerRadius(4)
                             
                             Text("M\(index+1)")
@@ -628,7 +632,7 @@ struct GoalDetailView: View {
                 .padding(.vertical)
             }
             
-            Text("At your current rate, you'll reach your goal in approximately \(monthsToGoal) months")
+            Text("At your current rate, you'll reach your goal in approximately \(String(monthsToGoal)) months")
                 .font(.system(size: 14))
                 .foregroundColor(Theme.text.opacity(0.7))
                 .multilineTextAlignment(.center)
