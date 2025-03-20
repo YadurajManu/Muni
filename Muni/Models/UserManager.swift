@@ -63,6 +63,25 @@ class UserManager: ObservableObject {
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
     }
     
+    // Reset user data
+    func resetUserData() {
+        name = ""
+        currency = "₹"
+        monthlyBudget = 0.0
+        monthlyIncome = 0.0
+        financialGoal = ""
+        primaryExpenseCategory = .food
+        darkModeEnabled = false
+        notificationsEnabled = true
+        onboardingCompleted = false
+        
+        // Save the reset data
+        saveUserData()
+        
+        // Post notification for app reset
+        NotificationCenter.default.post(name: Notification.Name("AppDataReset"), object: nil)
+    }
+    
     // Financial goals options
     static func financialGoalOptions() -> [String] {
         return [

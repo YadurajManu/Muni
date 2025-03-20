@@ -9,19 +9,23 @@ import SwiftUI
 
 struct Theme {
     // MARK: - Colors
-    static let primary = Color("PrimaryColor")
-    static let secondary = Color("SecondaryColor")
-    static let background = Color("BackgroundColor")
-    static let text = Color("TextColor")
+    static let primary = Color.blue
+    static let secondary = Color.orange
+    static let background = Color(.systemBackground)
+    static let text = Color.primary
+    static let cardBackground = Color(.secondarySystemBackground)
     static let accent = Color("AccentColor")
     
     // MARK: - Income/Expense Colors
-    static let income = Color("IncomeColor")
-    static let expense = Color("ExpenseColor")
+    static let income = Color.green
+    static let expense = Color.red
+    static let neutral = Color.orange
+    static let positive = Color.green
+    static let negative = Color.red
     
     // MARK: - Font Sizes
     static let headingSize: CGFloat = 28
-    static let titleSize: CGFloat = 22
+    static let titleSize: CGFloat = 24
     static let subtitleSize: CGFloat = 18
     static let bodySize: CGFloat = 16
     static let captionSize: CGFloat = 14
@@ -34,7 +38,7 @@ struct Theme {
     // MARK: - Corners
     static let cornerRadiusSmall: CGFloat = 8
     static let cornerRadiusMedium: CGFloat = 12
-    static let cornerRadiusLarge: CGFloat = 16
+    static let cornerRadiusLarge: CGFloat = 20
     
     // MARK: - Card Style
     static func cardStyle() -> some ViewModifier {
@@ -78,5 +82,28 @@ extension View {
     
     func primaryButtonStyle() -> some View {
         self.modifier(Theme.primaryButtonStyle())
+    }
+}
+
+// MARK: - App Appearance Settings
+enum AppTheme: String, CaseIterable, Identifiable {
+    case light, dark, system
+    
+    var id: String { self.rawValue }
+    
+    var name: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .system: return "System"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        case .system: return "gear"
+        }
     }
 } 

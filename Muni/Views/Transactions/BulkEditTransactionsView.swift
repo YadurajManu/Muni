@@ -27,7 +27,7 @@ struct BulkEditTransactionsView: View {
         NavigationView {
             VStack(spacing: 0) {
                 // Search bar
-                SearchBar(text: $searchText, placeholder: "Search transactions")
+                TransactionSearchBar(searchText: $searchText)
                     .padding(.horizontal)
                     .padding(.top, 8)
                 
@@ -55,7 +55,7 @@ struct BulkEditTransactionsView: View {
                 // Transaction list
                 List {
                     ForEach(filteredTransactions) { transaction in
-                        TransactionRow(
+                        BulkEditTransactionRow(
                             transaction: transaction,
                             isSelected: selectedTransactions.contains(transaction.id),
                             onSelect: {
@@ -213,7 +213,36 @@ struct BulkEditTransactionsView: View {
     }
 }
 
-struct TransactionRow: View {
+// TransactionSearchBar for bulk edit view
+struct TransactionSearchBar: View {
+    @Binding var searchText: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(searchText.isEmpty ? Theme.text.opacity(0.5) : Theme.primary)
+            
+            TextField("Search transactions", text: $searchText)
+                .foregroundColor(Theme.text)
+                .disableAutocorrection(true)
+            
+            if !searchText.isEmpty {
+                Button(action: {
+                    searchText = ""
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(Theme.text.opacity(0.5))
+                }
+            }
+        }
+        .padding()
+        .background(Theme.secondary.opacity(0.3))
+        .cornerRadius(10)
+    }
+}
+
+// TransactionRow for bulk edit view
+struct BulkEditTransactionRow: View {
     let transaction: Transaction
     let isSelected: Bool
     let onSelect: () -> Void
@@ -230,12 +259,12 @@ struct TransactionRow: View {
                 // Category icon
                 ZStack {
                     Circle()
-                        .fill(transaction.category.color.opacity(0.2))
+                        .fill(transaction.category.icon.contains("indianrupeesign") ? Color.green.opacity(0.2) : Color.red.opacity(0.2))
                         .frame(width: 36, height: 36)
                     
-                    Image(systemName: transaction.category.iconName)
+                    Image(systemName: transaction.category.icon)
                         .font(.system(size: 16))
-                        .foregroundColor(transaction.category.color)
+                        .foregroundColor(transaction.category.icon.contains("indianrupeesign") ? .green : .red)
                 }
                 
                 // Transaction details
@@ -280,33 +309,3 @@ struct TransactionRow: View {
         return formatter.string(from: date)
     }
 }
-
-struct SearchBar: View {
-    @Binding var text: String
-    var placeholder: String
-    
-    var body: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
-            
-            TextField(placeholder, text: $text)
-                .foregroundColor(Theme.text)
-                .disableAutocorrection(true)
-            
-            if !text.isEmpty {
-                Button(action: {
-                    text = ""
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
-                }
-            }
-        }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(UIColor.secondarySystemBackground))
-        )
-    }
-} 

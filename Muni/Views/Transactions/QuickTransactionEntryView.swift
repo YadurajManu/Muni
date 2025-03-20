@@ -137,9 +137,9 @@ struct QuickTransactionEntryView: View {
         
         let transaction = Transaction(
             id: UUID(),
+            amount: amountValue,
             type: transactionType,
             category: category,
-            amount: amountValue,
             date: date,
             note: note.isEmpty ? "\(category.rawValue)" : note
         )
@@ -160,7 +160,7 @@ struct QuickTransactionEntryView: View {
     }
     
     private func getCategories(for type: TransactionType) -> [TransactionCategory] {
-        return TransactionCategory.allCases.filter { $0.transactionType == type }
+        return type == .income ? TransactionCategory.incomeCategories() : TransactionCategory.expenseCategories()
     }
 }
 
@@ -168,9 +168,9 @@ struct QuickTransactionEntryView: View {
 extension TransactionCategory {
     var transactionType: TransactionType {
         switch self {
-        case .food, .transportation, .shopping, .entertainment, .bills, .healthcare, .education, .miscellaneous:
+        case .food, .transportation, .housing, .entertainment, .shopping, .bills, .health, .education, .travel, .miscellaneous:
             return .expense
-        case .salary, .business, .investment, .gifts:
+        case .salary, .investment, .gift, .other:
             return .income
         }
     }
@@ -182,13 +182,15 @@ extension TransactionCategory {
         case .shopping: return "bag.fill"
         case .entertainment: return "film.fill"
         case .bills: return "doc.text.fill"
-        case .healthcare: return "heart.fill"
+        case .health: return "heart.fill"
         case .education: return "book.fill"
+        case .housing: return "house.fill"
+        case .travel: return "airplane"
         case .miscellaneous: return "ellipsis.circle.fill"
         case .salary: return "indianrupeesign.circle.fill"
-        case .business: return "briefcase.fill"
         case .investment: return "chart.line.uptrend.xyaxis"
-        case .gifts: return "gift.fill"
+        case .gift: return "gift.fill"
+        case .other: return "questionmark.circle.fill"
         }
     }
     
@@ -199,13 +201,15 @@ extension TransactionCategory {
         case .shopping: return .purple
         case .entertainment: return .pink
         case .bills: return .gray
-        case .healthcare: return .red
+        case .health: return .red
         case .education: return .cyan
+        case .housing: return .green
+        case .travel: return .indigo
         case .miscellaneous: return .gray
         case .salary: return .green
-        case .business: return .indigo
-        case .investment: return .green
-        case .gifts: return .orange
+        case .investment: return .blue
+        case .gift: return .orange
+        case .other: return .gray
         }
     }
 } 

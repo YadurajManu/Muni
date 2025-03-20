@@ -42,47 +42,88 @@ struct AIAssistantView: View {
         ZStack {
             // Background with gradient
             LinearGradient(
-                gradient: Gradient(colors: [Theme.primary, Theme.primary.opacity(0.8)]),
+                gradient: Gradient(colors: [
+                    Theme.primary.opacity(0.9),
+                    Theme.primary.opacity(0.7)
+                ]),
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea(edges: .top)
+            .overlay(
+                // Add subtle pattern overlay for depth
+                Rectangle()
+                    .fill(Color.white.opacity(0.05))
+                    .background(
+                        GeometryReader { geometry in
+                            Path { path in
+                                let width = geometry.size.width
+                                let height = geometry.size.height
+                                let spacing: CGFloat = 20
+                                
+                                for i in stride(from: 0, to: width, by: spacing) {
+                                    for j in stride(from: 0, to: height, by: spacing) {
+                                        let x = i
+                                        let y = j
+                                        path.move(to: CGPoint(x: x, y: y))
+                                        path.addLine(to: CGPoint(x: x + 1, y: y + 1))
+                                    }
+                                }
+                            }
+                            .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                        }
+                    )
+            )
             
             VStack(spacing: 4) {
                 // App branding and assistant title
                 HStack {
-                    Button(action: { dismiss() }) {
+                    Button(action: { 
+                        // Light haptic feedback
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        dismiss() 
+                    }) {
                         Image(systemName: "arrow.left")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.white)
-                            .padding(8)
+                            .padding(10)
                             .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                     }
                     
                     Spacer()
                     
-                    Text("Muni Assistant")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                    Text("Financial Assistant")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
                     Spacer()
                     
-                    Button(action: { viewModel.clearConversation() }) {
-                        Image(systemName: "arrow.clockwise")
+                    Button(action: { 
+                        // Light haptic feedback
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        viewModel.clearConversation() 
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.white)
-                            .padding(8)
+                            .padding(10)
                             .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                     }
                 }
                 
                 // Status indicator
                 HStack {
                     Circle()
-                        .fill(Color.green)
+                        .fill(viewModel.isTyping ? Color.yellow : Color.green)
                         .frame(width: 8, height: 8)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                        )
                     
                     Text(viewModel.isTyping ? "Thinking..." : "Ready to help")
                         .font(.system(size: 14))
@@ -95,7 +136,7 @@ struct AIAssistantView: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
-        .frame(height: 110)
+        .frame(height: 120)
     }
     
     // Messages scrolling view
@@ -106,12 +147,17 @@ struct AIAssistantView: View {
                     ForEach(viewModel.messages) { message in
                         MessageBubbleView(message: message)
                             .id(message.id)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: message.isUser ? .trailing : .leading)).animation(.spring()),
+                                removal: .opacity.animation(.easeOut(duration: 0.1))
+                            ))
                     }
                     
                     // Typing indicator
                     if viewModel.isTyping {
                         TypingIndicator()
                             .id("typingIndicator")
+                            .transition(.scale(scale: 0.9, anchor: .leading).combined(with: .opacity))
                     }
                 }
                 .padding()
@@ -131,7 +177,14 @@ struct AIAssistantView: View {
                 }
             }
         }
-        .background(Theme.background)
+        .background(
+            Color(UIColor.systemBackground)
+                .overlay(
+                    Image("pattern") // Optional: light pattern background
+                        .resizable(resizingMode: .tile)
+                        .opacity(colorScheme == .dark ? 0.03 : 0.05)
+                )
+        )
     }
     
     // Quick action suggestion buttons
@@ -143,22 +196,26 @@ struct AIAssistantView: View {
                     userManager: userManager
                 ), id: \.self) { suggestion in
                     Button(action: {
+                        // Light haptic feedback
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         viewModel.sendMessage(content: suggestion)
                     }) {
                         Text(suggestion)
                             .font(.system(size: 14))
                             .foregroundColor(Theme.primary)
                             .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
+                            .padding(.horizontal, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 18)
-                                    .stroke(Theme.primary.opacity(0.5), lineWidth: 1)
+                                    .stroke(Theme.primary.opacity(0.3), lineWidth: 1)
                                     .background(
                                         RoundedRectangle(cornerRadius: 18)
-                                            .fill(colorScheme == .dark ? Color.black.opacity(0.3) : Color.white)
+                                            .fill(colorScheme == .dark ? Color.black.opacity(0.2) : Color.white)
+                                            .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
                                     )
                             )
                     }
+                    .buttonStyle(ScaleButtonStyle()) // Custom button style for press animation
                 }
             }
             .padding(.horizontal)
@@ -166,57 +223,82 @@ struct AIAssistantView: View {
         }
         .background(
             Rectangle()
-                .fill(Theme.background)
+                .fill(Color(UIColor.systemBackground))
                 .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: -5)
         )
     }
     
     // Message input area
     private var messageInputArea: some View {
-        HStack(spacing: 12) {
-            // Text input field
-            HStack {
-                TextField("Ask me about your finances...", text: $viewModel.inputMessage)
-                    .padding(.leading, 12)
-                    .disabled(viewModel.isTyping)
-                
-                if !viewModel.inputMessage.isEmpty {
-                    Button(action: {
-                        viewModel.inputMessage = ""
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+        VStack(spacing: 0) {
+            Divider()
+                .opacity(0.2)
+            
+            HStack(spacing: 12) {
+                // Text input field
+                HStack {
+                    TextField("Ask me about your finances...", text: $viewModel.inputMessage)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .disabled(viewModel.isTyping)
+                    
+                    if !viewModel.inputMessage.isEmpty {
+                        Button(action: {
+                            // Light haptic feedback
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            viewModel.inputMessage = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                                .padding(.trailing, 8)
+                        }
                     }
-                    .padding(.trailing, 8)
                 }
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(colorScheme == .dark ? Color(UIColor.systemGray6) : Color(UIColor.systemBackground))
+                        .shadow(color: Color.black.opacity(0.06), radius: 2, x: 0, y: 1)
+                )
+                
+                // Send button
+                Button(action: {
+                    if !viewModel.inputMessage.isEmpty {
+                        // Medium haptic feedback for sending
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        viewModel.sendMessage(content: viewModel.inputMessage)
+                        viewModel.inputMessage = ""
+                    }
+                }) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 48)
+                        .background(
+                            Circle()
+                                .fill(!viewModel.inputMessage.isEmpty && !viewModel.isTyping ? 
+                                      LinearGradient(
+                                        gradient: Gradient(colors: [Theme.primary, Theme.primary.opacity(0.8)]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                      ) : 
+                                      LinearGradient(
+                                        gradient: Gradient(colors: [Color.gray, Color.gray.opacity(0.8)]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                      ))
+                                .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
+                        )
+                }
+                .disabled(viewModel.inputMessage.isEmpty || viewModel.isTyping)
             }
+            .padding(.horizontal)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(colorScheme == .dark ? Color.black.opacity(0.3) : Color.white)
-                    .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+                Rectangle()
+                    .fill(Color(UIColor.systemBackground))
+                    .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: -2)
             )
-            
-            // Send button
-            Button(action: {
-                if !viewModel.inputMessage.isEmpty {
-                    viewModel.sendMessage(content: viewModel.inputMessage)
-                    viewModel.inputMessage = ""
-                }
-            }) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 38))
-                    .foregroundColor(!viewModel.inputMessage.isEmpty && !viewModel.isTyping ? Theme.primary : Color.gray)
-            }
-            .disabled(viewModel.inputMessage.isEmpty || viewModel.isTyping)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 10)
-        .background(
-            Rectangle()
-                .fill(colorScheme == .dark ? Color.black.opacity(0.2) : Color.white.opacity(0.9))
-                .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: -2)
-        )
     }
 }
 
@@ -226,12 +308,27 @@ struct MessageBubbleView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        HStack {
-            if message.isUser {
-                Spacer()
+        HStack(alignment: .bottom, spacing: 8) {
+            if !message.isUser {
+                // Assistant avatar
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(
+                            gradient: Gradient(colors: [Theme.primary, Theme.primary.opacity(0.8)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 32, height: 32)
+                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                }
+                .padding(.bottom, 4)
             }
             
-            VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: message.isUser ? .trailing : .leading, spacing: 2) {
                 // Message content
                 Text(message.content)
                     .font(.system(size: 16))
@@ -240,41 +337,78 @@ struct MessageBubbleView: View {
                     .padding(.vertical, 12)
                     .background(
                         message.isUser
-                            ? Theme.primary
-                            : (colorScheme == .dark ? Color.gray.opacity(0.3) : Color.gray.opacity(0.1))
+                            ? LinearGradient(
+                                gradient: Gradient(colors: [Theme.primary, Theme.primary.opacity(0.85)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                              )
+                            : LinearGradient(
+                                gradient: Gradient(colors: [colorScheme == .dark ? Color.gray.opacity(0.25) : Color(UIColor.systemGray6), colorScheme == .dark ? Color.gray.opacity(0.25) : Color(UIColor.systemGray6)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                              )
                     )
                     .cornerRadius(20)
                     .cornerRadius(message.isUser ? 20 : 20, corners: message.isUser ? [.topLeft, .bottomLeft, .bottomRight] : [.topRight, .bottomLeft, .bottomRight])
+                    .shadow(color: Color.black.opacity(message.isUser ? 0.1 : 0.05), radius: 1, x: 0, y: 1)
                 
                 // Optional action buttons for assistant messages
                 if !message.isUser && !message.actions.isEmpty {
                     HStack(spacing: 8) {
                         ForEach(message.actions) { action in
-                            Text(action.title)
-                                .font(.system(size: 14))
-                                .foregroundColor(Theme.primary)
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Theme.primary.opacity(0.5), lineWidth: 1)
-                                )
+                            Button(action: {
+                                // Add haptic feedback for button press
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                action.action()
+                            }) {
+                                Text(action.title)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Theme.primary)
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Theme.primary.opacity(0.5), lineWidth: 1)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .fill(colorScheme == .dark ? Color.black.opacity(0.3) : Color.white)
+                                            )
+                                    )
+                                    .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
+                            }
                         }
                     }
                     .padding(.top, 4)
+                    .padding(.leading, 4)
                 }
                 
                 // Timestamp
                 Text(formatTime(date: message.timestamp))
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.text.opacity(0.5))
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.text.opacity(0.4))
                     .padding(.horizontal, 4)
+                    .padding(.top, 2)
             }
             
-            if !message.isUser {
-                Spacer()
+            if message.isUser {
+                // User avatar
+                Circle()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [Color.gray.opacity(0.6), Color.gray.opacity(0.4)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                    )
+                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    .padding(.bottom, 4)
             }
         }
+        .padding(.horizontal, 4)
     }
     
     private func formatTime(date: Date) -> String {
@@ -310,32 +444,51 @@ struct TypingIndicator: View {
     @State private var firstDotScale: CGFloat = 1.0
     @State private var secondDotScale: CGFloat = 1.0
     @State private var thirdDotScale: CGFloat = 1.0
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .bottom, spacing: 8) {
+            // Assistant avatar
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [Theme.primary, Theme.primary.opacity(0.8)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 32, height: 32)
+                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                
+                Image(systemName: "brain.head.profile")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
+            
             HStack(spacing: 4) {
                 Circle()
                     .frame(width: 8, height: 8)
                     .scaleEffect(firstDotScale)
-                    .foregroundColor(Theme.text.opacity(0.5))
+                    .foregroundColor(Theme.primary.opacity(0.5))
                 
                 Circle()
                     .frame(width: 8, height: 8)
                     .scaleEffect(secondDotScale)
-                    .foregroundColor(Theme.text.opacity(0.5))
+                    .foregroundColor(Theme.primary.opacity(0.5))
                 
                 Circle()
                     .frame(width: 8, height: 8)
                     .scaleEffect(thirdDotScale)
-                    .foregroundColor(Theme.text.opacity(0.5))
+                    .foregroundColor(Theme.primary.opacity(0.5))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.gray.opacity(0.1))
+            .background(colorScheme == .dark ? Color.gray.opacity(0.25) : Color(UIColor.systemGray6))
             .cornerRadius(20, corners: [.topRight, .bottomLeft, .bottomRight])
             
             Spacer()
         }
+        .padding(.horizontal, 4)
         .onAppear {
             animate()
         }

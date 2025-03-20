@@ -17,6 +17,8 @@ struct DashboardView: View {
     @State private var showingQuickEntry = false
     @State private var showingTransactionOptions = false
     @State private var selectedQuickAction: QuickActionType? = nil
+    @State private var showingBulkEdit = false
+    @State private var showingRecurringSetup = false
     
     var body: some View {
         NavigationView {
@@ -122,9 +124,22 @@ struct DashboardView: View {
                     .environmentObject(userManager)
                 }
             }
+            .sheet(isPresented: $showingBulkEdit) {
+                BulkEditTransactionsView()
+                    .environmentObject(transactionManager)
+                    .environmentObject(userManager)
+            }
+            .sheet(isPresented: $showingRecurringSetup) {
+                RecurringTransactionSetupView()
+                    .environmentObject(transactionManager)
+                    .environmentObject(userManager)
+            }
             .onAppear {
                 // Register for haptic feedback
                 UIImpactFeedbackGenerator(style: .medium).prepare()
+                
+                // Process any recurring transactions
+                transactionManager.processRecurringTransactions()
             }
         }
     }
@@ -181,10 +196,10 @@ struct DashboardView: View {
                         message: Text("Select an action"),
                         buttons: [
                             .default(Text("Bulk Edit Transactions")) {
-                                // TODO: Navigate to bulk edit view
+                                showingBulkEdit = true
                             },
                             .default(Text("Create Recurring Transaction")) {
-                                // TODO: Navigate to recurring transaction setup
+                                showingRecurringSetup = true
                             },
                             .cancel()
                         ]

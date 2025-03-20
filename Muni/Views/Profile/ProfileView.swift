@@ -13,18 +13,24 @@ import QuickLook
 struct ProfileView: View {
     @EnvironmentObject private var userManager: UserManager
     @EnvironmentObject private var transactionManager: TransactionManager
-    @State private var userName = ""
-    @State private var monthlyBudget = ""
-    @State private var monthlyIncome = ""
-    @State private var showAlert = false
-    @State private var alertTitle = ""
-    @State private var alertMessage = ""
+    @State private var showingEditProfile = false
+    @State private var showingAppSettings = false
     @State private var showingExportOptions = false
-    @State private var exportFormat: ExportFormat = .pdf
     @State private var showingShareSheet = false
-    @State private var exportURL: URL? = nil
+    @State private var exportFormat: ExportFormat = .pdf
     @State private var isExporting = false
+    @State private var exportURL: URL? = nil
     @State private var showingDeveloperInfo = false
+    @State private var showingAppearanceOptions = false
+    @State private var showingPrivacyPolicy = false
+    @State private var selectedAppearance = AppTheme.system
+    @State private var showingNotificationPreferences = false
+    @State private var showingPrivacySettings = false
+    @State private var showingCurrencySettings = false
+    @State private var showingBackupOptions = false
+    @State private var showingAboutView = false
+    @State private var showingHelpCenter = false
+    @State private var showingResetApp = false
     
     enum ExportFormat: String, CaseIterable, Identifiable {
         case pdf = "PDF"
@@ -61,609 +67,491 @@ struct ProfileView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: Theme.paddingLarge) {
+                VStack(spacing: 24) {
                     // Profile header
                     profileHeader
                     
-                    // User information card
-                    userInfoCard
+                    // Finance summary card
+                    financeSummaryCard
                     
-                    // App statistics card
-                    appStatisticsCard
+                    // Quick actions
+                    quickActions
                     
-                    // Export options card
-                    exportOptionsCard
+                    // Settings sections
+                    settingsSections
                     
-                    // Data management card
-                    dataManagementCard
-                    
-                    // About app card
-                    aboutAppCard
-                    
-                    // Developer info
-                    developerInfoCard
+                    // Version info at bottom
+                    versionInfo
                 }
-                .padding(.vertical)
+                .padding(.bottom, 30)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(Theme.background.edgesIgnoringSafeArea(.all))
             .navigationTitle("Profile")
-            .onAppear {
-                userName = userManager.name
-                monthlyBudget = String(format: "%.2f", userManager.monthlyBudget)
-                monthlyIncome = String(format: "%.2f", userManager.monthlyIncome)
+            .navigationBarTitleDisplayMode(.large)
+            .sheet(isPresented: $showingEditProfile) {
+                EditProfileView()
+                    .environmentObject(userManager)
             }
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text(alertTitle),
-                    message: Text(alertMessage),
-                    primaryButton: .destructive(Text("Reset")) {
-                        performDataReset()
-                    },
-                    secondaryButton: .cancel()
-                )
+            .sheet(isPresented: $showingAppSettings) {
+                AppSettingsView()
             }
-            .sheet(isPresented: $showingExportOptions) {
-                exportOptionsView
+            .sheet(isPresented: $showingShareSheet) {
+                shareSheet
             }
             .sheet(isPresented: $showingDeveloperInfo) {
                 DeveloperInfoView()
             }
-            .overlay {
-                if isExporting {
-                    ZStack {
-                        Color.black.opacity(0.4)
-                            .ignoresSafeArea()
-                        
-                        VStack(spacing: 20) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            
-                            Text("Preparing your financial report...")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.white)
-                        }
-                        .padding(30)
-                        .background(Theme.primary.opacity(0.8))
-                        .cornerRadius(20)
+            .background(
+                Group {
+                    NavigationLink(isActive: $showingNotificationPreferences) {
+                        NotificationPreferencesView()
+                    } label: { EmptyView() }
+                    
+                    NavigationLink(isActive: $showingPrivacySettings) {
+                        PrivacySecurityView()
+                    } label: { EmptyView() }
+                    
+                    NavigationLink(isActive: $showingCurrencySettings) {
+                        CurrencyLanguageView()
+                            .environmentObject(userManager)
+                    } label: { EmptyView() }
+                    
+                    NavigationLink(isActive: $showingBackupOptions) {
+                        BackupRestoreView()
+                            .environmentObject(userManager)
+                            .environmentObject(transactionManager)
+                    } label: { EmptyView() }
+                    
+                    NavigationLink(isActive: $showingAboutView) {
+                        AboutView()
+                    } label: { EmptyView() }
+                    
+                    NavigationLink(isActive: $showingHelpCenter) {
+                        HelpCenterView()
+                    } label: { EmptyView() }
+                    
+                    NavigationLink(isActive: $showingResetApp) {
+                        ResetAppView()
+                            .environmentObject(userManager)
+                            .environmentObject(transactionManager)
+                    } label: { EmptyView() }
+                }
+            )
+            .alert(isPresented: $showingAppearanceOptions) {
+                Alert(
+                    title: Text("Choose Appearance"),
+                    message: Text("Select your preferred theme"),
+                    primaryButton: .default(Text("Light")) {
+                        selectedAppearance = .light
+                        applyAppearanceSettings()
+                    },
+                    secondaryButton: .default(Text("Dark")) {
+                        selectedAppearance = .dark
+                        applyAppearanceSettings()
                     }
-                    .transition(.opacity)
-                }
+                )
             }
-            .animation(.easeInOut, value: isExporting)
-            .sheet(isPresented: $showingShareSheet) {
-                shareSheet
+            .actionSheet(isPresented: $showingExportOptions) {
+                ActionSheet(
+                    title: Text("Export Data"),
+                    message: Text("Choose an export format"),
+                    buttons: [
+                        .default(Text("PDF")) {
+                            exportFormat = .pdf
+                            exportData()
+                        },
+                        .default(Text("CSV")) {
+                            exportFormat = .csv
+                            exportData()
+                        },
+                        .default(Text("Excel Compatible")) {
+                            exportFormat = .excel
+                            exportData()
+                        },
+                        .cancel()
+                    ]
+                )
             }
         }
     }
     
+    // Profile header section
     private var profileHeader: some View {
-        VStack(spacing: Theme.paddingMedium) {
-            ZStack(alignment: .bottomTrailing) {
-                Image(systemName: "person.circle.fill")
-                    .resizable()
-                    .scaledToFit()
+        VStack(spacing: 16) {
+            // Profile picture
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [Theme.primary.opacity(0.8), Theme.primary.opacity(0.6)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
                     .frame(width: 100, height: 100)
-                    .foregroundColor(Theme.primary)
-                    .padding(.top)
+                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                 
-                Button(action: {
-                    // In a real app, this would open image picker
-                }) {
-                    Image(systemName: "camera.fill")
+                // If no profile image, show initials
+                if userManager.name.isEmpty {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 40))
                         .foregroundColor(.white)
-                        .padding(8)
-                        .background(Theme.primary)
-                        .clipShape(Circle())
+                } else {
+                    Text(userManager.name.prefix(1).uppercased())
+                        .font(.system(size: 40, weight: .semibold))
+                        .foregroundColor(.white)
                 }
             }
             
-            Text(userManager.name)
-                .font(.system(size: Theme.titleSize, weight: .bold))
-                .foregroundColor(Theme.text)
-            
-            HStack {
-                Text("Muni Money Manager")
-                    .font(.system(size: Theme.bodySize))
-                    .foregroundColor(Theme.text.opacity(0.7))
-                
-                Image(systemName: "indianrupeesign.circle.fill")
-                    .foregroundColor(Theme.primary)
-            }
-            
-            // User's financial status chips
-            HStack(spacing: 12) {
-                // Financial goal tag
-                if !userManager.financialGoal.isEmpty {
-                    Text(userManager.financialGoal)
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Theme.primary.opacity(0.2))
-                        .foregroundColor(Theme.primary)
-                        .cornerRadius(20)
-                }
-                
-                // Balance tag
-                let balance = transactionManager.balance()
-                Text(balance >= 0 ? "Positive Balance" : "Negative Balance")
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(balance >= 0 ? Theme.income.opacity(0.2) : Theme.expense.opacity(0.2))
-                    .foregroundColor(balance >= 0 ? Theme.income : Theme.expense)
-                    .cornerRadius(20)
-            }
-        }
-    }
-    
-    private var userInfoCard: some View {
-        VStack(alignment: .leading, spacing: Theme.paddingMedium) {
-            HStack {
-                Text("User Information")
-                    .font(.system(size: Theme.subtitleSize, weight: .semibold))
+            // User name and edit button
+            VStack(spacing: 4) {
+                Text(userManager.name.isEmpty ? "Set Your Name" : userManager.name)
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(Theme.text)
                 
-                Spacer()
-                
                 Button(action: {
-                    saveUserInfo()
+                    showingEditProfile = true
                 }) {
-                    Text("Save")
+                    Text("Edit Profile")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Theme.primary)
-                        .cornerRadius(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Theme.primary.opacity(0.3), lineWidth: 1)
+                        )
                 }
-            }
-            
-            VStack(spacing: Theme.paddingMedium) {
-                // Name
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Your Name")
-                        .font(.system(size: Theme.captionSize))
-                        .foregroundColor(Theme.text.opacity(0.7))
-                    
-                    TextField("Enter your name", text: $userName)
-                        .padding()
-                        .background(Theme.secondary.opacity(0.3))
-                        .cornerRadius(Theme.cornerRadiusSmall)
-                }
-                
-                // Monthly Income
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Monthly Income")
-                        .font(.system(size: Theme.captionSize))
-                        .foregroundColor(Theme.text.opacity(0.7))
-                    
-                    HStack {
-                        Text("₹")
-                            .font(.system(size: Theme.bodySize, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                        
-                        TextField("0.00", text: $monthlyIncome)
-                            .keyboardType(.decimalPad)
-                            .padding()
-                    }
-                    .background(Theme.secondary.opacity(0.3))
-                    .cornerRadius(Theme.cornerRadiusSmall)
-                }
-                
-                // Monthly budget
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Monthly Budget")
-                        .font(.system(size: Theme.captionSize))
-                        .foregroundColor(Theme.text.opacity(0.7))
-                    
-                    HStack {
-                        Text("₹")
-                            .font(.system(size: Theme.bodySize, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                        
-                        TextField("0.00", text: $monthlyBudget)
-                            .keyboardType(.decimalPad)
-                            .padding()
-                    }
-                    .background(Theme.secondary.opacity(0.3))
-                    .cornerRadius(Theme.cornerRadiusSmall)
-                }
-                
-                // Financial goal
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Financial Goal")
-                        .font(.system(size: Theme.captionSize))
-                        .foregroundColor(Theme.text.opacity(0.7))
-                    
-                    Menu {
-                        ForEach(UserManager.financialGoalOptions(), id: \.self) { goal in
-                            Button(action: {
-                                userManager.financialGoal = goal
-                                userManager.saveUserData()
-                            }) {
-                                HStack {
-                                    Text(goal)
-                                    
-                                    if userManager.financialGoal == goal {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Text(userManager.financialGoal.isEmpty ? "Select a goal" : userManager.financialGoal)
-                                .foregroundColor(Theme.text)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            Image(systemName: "chevron.down")
-                                .foregroundColor(Theme.text.opacity(0.7))
-                        }
-                        .padding()
-                        .background(Theme.secondary.opacity(0.3))
-                        .cornerRadius(Theme.cornerRadiusSmall)
-                    }
-                }
+                .buttonStyle(ScaleButtonStyle())
             }
         }
-        .padding()
-        .background(Theme.background)
-        .cardStyle()
-        .padding(.horizontal)
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity)
+        .background(Color(UIColor.secondarySystemBackground))
     }
     
-    private var appStatisticsCard: some View {
-        VStack(alignment: .leading, spacing: Theme.paddingMedium) {
-            Text("App Statistics")
-                .font(.system(size: Theme.subtitleSize, weight: .semibold))
+    // Finance summary card
+    private var financeSummaryCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Financial Summary")
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Theme.text)
             
-            HStack {
-                StatisticItem(
-                    title: "Transactions",
-                    value: "\(transactionManager.transactions.count)",
-                    icon: "list.bullet"
-                )
-                
-                Spacer()
-                
-                StatisticItem(
+            HStack(spacing: 20) {
+                // Balance card
+                financeInfoCard(
                     title: "Balance",
                     value: "\(userManager.currency)\(String(format: "%.2f", transactionManager.balance()))",
-                    icon: "indianrupeesign.circle"
+                    icon: "indianrupeesign.circle.fill",
+                    color: Color.green
                 )
-            }
-            
-            // Additional statistics row
-            HStack {
-                StatisticItem(
+                
+                // Income card
+                financeInfoCard(
                     title: "Income",
                     value: "\(userManager.currency)\(String(format: "%.2f", transactionManager.totalIncome()))",
-                    icon: "arrow.down.circle"
+                    icon: "arrow.down.circle.fill",
+                    color: Color.blue
                 )
                 
-                Spacer()
-                
-                StatisticItem(
+                // Expense card
+                financeInfoCard(
                     title: "Expenses",
                     value: "\(userManager.currency)\(String(format: "%.2f", transactionManager.totalExpense()))",
-                    icon: "arrow.up.circle"
+                    icon: "arrow.up.circle.fill",
+                    color: Color.red
                 )
             }
-            .padding(.top, 8)
         }
         .padding()
-        .background(Theme.background)
-        .cardStyle()
+        .background(Color(UIColor.secondarySystemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
         .padding(.horizontal)
     }
     
-    private var exportOptionsCard: some View {
-        VStack(alignment: .leading, spacing: Theme.paddingMedium) {
-            Text("Export Data")
-                .font(.system(size: Theme.subtitleSize, weight: .semibold))
-                .foregroundColor(Theme.text)
+    // Helper for finance info cards
+    private func financeInfoCard(title: String, value: String, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(color)
+                
+                Text(title)
+                    .font(.system(size: 14))
+                    .foregroundColor(Theme.text.opacity(0.7))
+            }
             
-            Button(action: {
-                showingExportOptions = true
-            }) {
-                HStack {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(Theme.primary)
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Theme.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(color.opacity(0.1))
+        .cornerRadius(10)
+    }
+    
+    // Quick actions section
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Quick Actions")
+                .font(.headline)
+                .foregroundColor(Theme.text)
+                .padding(.horizontal)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    quickActionButton(
+                        title: "Export Data",
+                        icon: "square.and.arrow.up",
+                        color: Color.blue,
+                        action: { showingExportOptions = true }
+                    )
                     
-                    Text("Export Transactions")
-                        .foregroundColor(Theme.text)
+                    quickActionButton(
+                        title: "Appearance",
+                        icon: "paintbrush.fill",
+                        color: Color.purple,
+                        action: { showingAppearanceOptions = true }
+                    )
                     
-                    Spacer()
+                    quickActionButton(
+                        title: "Backup",
+                        icon: "externaldrive.fill",
+                        color: Color.green,
+                        action: { /* Implement backup */ }
+                    )
                     
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(Theme.text.opacity(0.5))
+                    quickActionButton(
+                        title: "Settings",
+                        icon: "gear",
+                        color: Color.orange,
+                        action: { showingAppSettings = true }
+                    )
                 }
-                .padding()
-                .background(Theme.secondary.opacity(0.3))
-                .cornerRadius(Theme.cornerRadiusMedium)
+                .padding(.horizontal)
             }
         }
-        .padding()
-        .background(Theme.background)
-        .cardStyle()
-        .padding(.horizontal)
     }
     
-    private var exportOptionsView: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                // Export format selection
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Select Export Format")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Theme.text)
+    // Helper for quick action buttons
+    private func quickActionButton(title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            // Light haptic feedback
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        }) {
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.2))
+                        .frame(width: 56, height: 56)
                     
-                    ForEach(ExportFormat.allCases) { format in
-                        Button(action: {
-                            exportFormat = format
-                        }) {
-                            HStack {
-                                Image(systemName: format.icon)
-                                    .font(.system(size: 20))
-                                    .foregroundColor(exportFormat == format ? .white : Theme.primary)
-                                    .frame(width: 30)
-                                
-                                Text(format.rawValue)
-                                    .font(.system(size: 17))
-                                    .foregroundColor(exportFormat == format ? .white : Theme.text)
-                                
-                                Spacer()
-                                
-                                if exportFormat == format {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(.white)
-                                }
-                            }
-                            .padding()
-                            .background(exportFormat == format ? Theme.primary : Theme.secondary.opacity(0.3))
-                            .cornerRadius(10)
+                    Image(systemName: icon)
+                        .font(.system(size: 24))
+                        .foregroundColor(color)
+                }
+                
+                Text(title)
+                    .font(.system(size: 14))
+                    .foregroundColor(Theme.text)
+            }
+            .frame(width: 80)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+    
+    // Settings sections
+    private var settingsSections: some View {
+        VStack(spacing: 24) {
+            // Account settings
+            settingsSection(title: "Account", items: [
+                SettingsItem(
+                    title: "Personal Information",
+                    icon: "person.fill",
+                    color: .blue,
+                    action: { showingEditProfile = true }
+                ),
+                SettingsItem(
+                    title: "Notification Preferences",
+                    icon: "bell.fill",
+                    color: .orange,
+                    action: { 
+                        withAnimation {
+                            showingNotificationPreferences = true
                         }
                     }
-                }
-                .padding()
-                
-                // Export button
-                Button(action: {
-                    exportData()
-                }) {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("Export as \(exportFormat.rawValue)")
+                ),
+                SettingsItem(
+                    title: "Privacy & Security",
+                    icon: "lock.fill",
+                    color: .green,
+                    action: { 
+                        withAnimation {
+                            showingPrivacySettings = true
+                        }
                     }
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.primary)
-                    .cornerRadius(10)
-                    .padding(.horizontal)
-                }
-                
-                Spacer()
-            }
-            .padding(.top)
-            .navigationTitle("Export Options")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(trailing: Button("Cancel") {
-                showingExportOptions = false
-            })
-        }
-    }
-    
-    private var dataManagementCard: some View {
-        VStack(alignment: .leading, spacing: Theme.paddingMedium) {
-            Text("Data Management")
-                .font(.system(size: Theme.subtitleSize, weight: .semibold))
-                .foregroundColor(Theme.text)
+                )
+            ])
             
-            Button(action: resetAllData) {
-                HStack {
-                    Image(systemName: "trash")
-                        .foregroundColor(Theme.expense)
-                    
-                    Text("Reset All Data")
-                        .foregroundColor(Theme.expense)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(Theme.text.opacity(0.5))
-                }
-                .padding()
-                .background(Theme.secondary.opacity(0.3))
-                .cornerRadius(Theme.cornerRadiusMedium)
-            }
-            
-            // Backup and restore
-            Button(action: {
-                // In a real app, this would handle backup functionality
-            }) {
-                HStack {
-                    Image(systemName: "arrow.clockwise.icloud")
-                        .foregroundColor(Theme.primary)
-                    
-                    Text("Backup & Restore")
-                        .foregroundColor(Theme.text)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(Theme.text.opacity(0.5))
-                }
-                .padding()
-                .background(Theme.secondary.opacity(0.3))
-                .cornerRadius(Theme.cornerRadiusMedium)
-            }
-        }
-        .padding()
-        .background(Theme.background)
-        .cardStyle()
-        .padding(.horizontal)
-    }
-    
-    private var aboutAppCard: some View {
-        VStack(alignment: .leading, spacing: Theme.paddingMedium) {
-            Text("About")
-                .font(.system(size: Theme.subtitleSize, weight: .semibold))
-                .foregroundColor(Theme.text)
-            
-            VStack(spacing: Theme.paddingSmall) {
-                rowItem(title: "Version", detail: "1.0.0")
-                rowItem(title: "Build", detail: "1")
-                
-                // Developer info - tappable
-                Button(action: {
-                    showingDeveloperInfo = true
-                }) {
-                    HStack {
-                        Text("Developer")
-                            .font(.system(size: Theme.bodySize))
-                            .foregroundColor(Theme.text)
-                        
-                        Spacer()
-                        
-                        Text("Yaduraj Singh")
-                            .font(.system(size: Theme.bodySize))
-                            .foregroundColor(Theme.primary)
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14))
-                            .foregroundColor(Theme.text.opacity(0.5))
+            // App settings
+            settingsSection(title: "App Settings", items: [
+                SettingsItem(
+                    title: "Currency & Language",
+                    icon: "indianrupeesign.circle.fill",
+                    color: .purple,
+                    action: { 
+                        withAnimation {
+                            showingCurrencySettings = true
+                        }
                     }
-                }
-            }
+                ),
+                SettingsItem(
+                    title: "App Appearance",
+                    icon: "paintbrush.fill",
+                    color: .indigo,
+                    action: { showingAppearanceOptions = true }
+                ),
+                SettingsItem(
+                    title: "Backup & Restore",
+                    icon: "arrow.clockwise",
+                    color: .blue,
+                    action: { 
+                        withAnimation {
+                            showingBackupOptions = true
+                        }
+                    }
+                )
+            ])
             
-            Text("Muni is a personal money management app designed specifically for Indian users. Track your expenses, manage your budget, and get AI-powered financial advice.")
-                .font(.system(size: Theme.captionSize))
-                .foregroundColor(Theme.text.opacity(0.7))
-                .padding(.top, 8)
+            // Help & Support
+            settingsSection(title: "Help & Support", items: [
+                SettingsItem(
+                    title: "About Muni",
+                    icon: "info.circle.fill",
+                    color: .gray,
+                    action: { 
+                        withAnimation {
+                            showingAboutView = true
+                        }
+                    }
+                ),
+                SettingsItem(
+                    title: "Developer Information",
+                    icon: "person.crop.rectangle.fill",
+                    color: .orange,
+                    action: { showingDeveloperInfo = true }
+                ),
+                SettingsItem(
+                    title: "Help Center",
+                    icon: "questionmark.circle.fill",
+                    color: .blue,
+                    action: { 
+                        withAnimation {
+                            showingHelpCenter = true
+                        }
+                    }
+                )
+            ])
+            
+            // Reset App Section
+            settingsSection(title: "Advanced Options", items: [
+                SettingsItem(
+                    title: "Reset App",
+                    icon: "arrow.counterclockwise",
+                    color: .red,
+                    action: { 
+                        withAnimation {
+                            showingResetApp = true
+                        }
+                    }
+                )
+            ])
         }
-        .padding()
-        .background(Theme.background)
-        .cardStyle()
         .padding(.horizontal)
     }
     
-    private var developerInfoCard: some View {
-        VStack(alignment: .leading, spacing: Theme.paddingMedium) {
-            Text("Developer Contact")
-                .font(.system(size: Theme.subtitleSize, weight: .semibold))
-                .foregroundColor(Theme.text)
-            
-            Button(action: {
-                if let url = URL(string: "https://github.com/YadurajManu") {
-                    UIApplication.shared.open(url)
-                }
-            }) {
-                HStack {
-                    Image(systemName: "link")
-                        .foregroundColor(Theme.primary)
-                    
-                    Text("GitHub Profile")
-                        .foregroundColor(Theme.text)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(Theme.text.opacity(0.5))
-                }
-                .padding()
-                .background(Theme.secondary.opacity(0.3))
-                .cornerRadius(Theme.cornerRadiusMedium)
-            }
-            
-            // Rate app button
-            Button(action: {
-                // In a real app, this would open App Store rating
-            }) {
-                HStack {
-                    Image(systemName: "star.fill")
-                        .foregroundColor(.yellow)
-                    
-                    Text("Rate This App")
-                        .foregroundColor(Theme.text)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(Theme.text.opacity(0.5))
-                }
-                .padding()
-                .background(Theme.secondary.opacity(0.3))
-                .cornerRadius(Theme.cornerRadiusMedium)
-            }
-        }
-        .padding()
-        .background(Theme.background)
-        .cardStyle()
-        .padding(.horizontal)
+    // Helper struct for settings items
+    struct SettingsItem: Identifiable {
+        let id = UUID()
+        let title: String
+        let icon: String
+        let color: Color
+        let action: () -> Void
     }
     
-    private func rowItem(title: String, detail: String) -> some View {
-        HStack {
+    // Helper function for settings sections
+    private func settingsSection(title: String, items: [SettingsItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: Theme.bodySize))
+                .font(.headline)
+                .foregroundColor(Theme.text)
+                .padding(.bottom, 4)
+            
+            VStack(spacing: 0) {
+                ForEach(items) { item in
+                    Button(action: {
+                        // Light haptic feedback
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        item.action()
+                    }) {
+                        HStack(spacing: 16) {
+                            Image(systemName: item.icon)
+                                .font(.system(size: 16))
+                                .foregroundColor(item.color)
+                                .frame(width: 28, height: 28)
+                                .background(item.color.opacity(0.1))
+                                .clipShape(Circle())
+                            
+                            Text(item.title)
+                                .font(.system(size: 16))
+                                .foregroundColor(Theme.text)
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14))
+                                .foregroundColor(Color.gray)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    if items.last?.id != item.id {
+                        Divider()
+                            .padding(.leading, 60)
+                    }
+                }
+            }
+            .background(Color(UIColor.secondarySystemBackground))
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        }
+    }
+    
+    // Version info footer
+    private var versionInfo: some View {
+        VStack(spacing: 4) {
+            Text("Muni Finance App")
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Theme.text)
             
-            Spacer()
-            
-            Text(detail)
-                .font(.system(size: Theme.bodySize))
-                .foregroundColor(Theme.text.opacity(0.7))
+            Text("Version 1.0.0")
+                .font(.system(size: 12))
+                .foregroundColor(Theme.text.opacity(0.5))
         }
+        .padding(.top, 20)
     }
     
-    private func saveUserInfo() {
-        userManager.name = userName
-        
-        if let budget = Double(monthlyBudget) {
-            userManager.monthlyBudget = budget
-        }
-        
-        if let income = Double(monthlyIncome) {
-            userManager.monthlyIncome = income
-        }
-        
-        userManager.saveUserData()
-        
-        // Show confirmation
-        alertTitle = "Profile Updated"
-        alertMessage = "Your profile information has been updated."
-        showAlert = true
-    }
-    
-    private func resetAllData() {
-        // Show confirmation alert
-        alertTitle = "Reset All Data"
-        alertMessage = "Are you sure you want to reset all your data? This action cannot be undone."
-        showAlert = true
-    }
-    
-    private func performDataReset() {
-        // Reset user data and transactions
-        userManager.name = ""
-        userManager.monthlyBudget = 0.0
-        userManager.monthlyIncome = 0.0
-        userManager.financialGoal = ""
-        userManager.saveUserData()
-        
-        // Reset onboarding status to force onboarding again
-        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
-        
-        transactionManager.transactions = []
-        transactionManager.saveTransactions()
-        
-        // Reset UI fields
-        userName = ""
-        monthlyBudget = "0.00"
-        monthlyIncome = "0.00"
+    // Apply appearance settings
+    private func applyAppearanceSettings() {
+        // In a real app, we would persist this setting and apply it to the app
+        // For now we just print the selection
+        print("Selected appearance: \(selectedAppearance)")
     }
     
     private func exportData() {
@@ -696,16 +584,15 @@ struct ProfileView: View {
     }
     
     private func generatePDFFile(fileURL: URL) {
-        // Create a PDF document with proper metadata that includes UTI information
-        let pdfMetaData = [
-            kCGPDFContextCreator: "Muni App" as CFString,
+        // Create PDF document with enhanced styling and branding
+        let pdfMetaData: [CFString: Any] = [
+            kCGPDFContextCreator: "Muni Finance App" as CFString,
             kCGPDFContextAuthor: userManager.name as CFString,
             kCGPDFContextTitle: "Muni Financial Report" as CFString,
-            kCGPDFContextOwnerPassword: "" as CFString,
-            kCGPDFContextUserPassword: "" as CFString,
+            kCGPDFContextKeywords: "finance, budget, transactions, report" as CFString,
             kCGPDFContextAllowsPrinting: true as CFBoolean,
             kCGPDFContextAllowsCopying: true as CFBoolean
-        ] as [CFString : Any]
+        ]
         
         let format = UIGraphicsPDFRendererFormat()
         format.documentInfo = pdfMetaData as [String: Any]
@@ -713,191 +600,449 @@ struct ProfileView: View {
         let pageWidth = 8.5 * 72.0
         let pageHeight = 11.0 * 72.0
         let pageRect = CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight)
+        let margin: CGFloat = 50
+        let contentWidth = pageWidth - (margin * 2)
         
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: format)
         
         try? renderer.writePDF(to: fileURL) { context in
-            context.beginPage()
-            
-            // Add logo/app name at the top
-            let titleFont = UIFont.systemFont(ofSize: 28, weight: .bold)
-            let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: titleFont,
-                .foregroundColor: UIColor.black
-            ]
-            
-            let title = "Muni Financial Report"
-            let titleSize = (title as NSString).size(withAttributes: titleAttributes)
-            (title as NSString).draw(at: CGPoint(x: (pageWidth - titleSize.width) / 2, y: 50), withAttributes: titleAttributes)
-            
-            // Add date
-            let dateFont = UIFont.systemFont(ofSize: 14)
-            let dateAttributes: [NSAttributedString.Key: Any] = [
-                .font: dateFont,
-                .foregroundColor: UIColor.darkGray
-            ]
-            
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateStyle = .long
-            let date = "Generated on \(dateFormatter.string(from: Date()))"
-            let dateSize = (date as NSString).size(withAttributes: dateAttributes)
-            (date as NSString).draw(at: CGPoint(x: (pageWidth - dateSize.width) / 2, y: 80), withAttributes: dateAttributes)
-            
-            // Draw a line
-            let path = UIBezierPath()
-            path.move(to: CGPoint(x: 50, y: 110))
-            path.addLine(to: CGPoint(x: pageWidth - 50, y: 110))
-            UIColor.lightGray.setStroke()
-            path.lineWidth = 0.5
-            path.stroke()
-            
-            // Account Summary
-            let summaryFont = UIFont.systemFont(ofSize: 22, weight: .medium)
-            let summaryAttributes: [NSAttributedString.Key: Any] = [
-                .font: summaryFont,
-                .foregroundColor: UIColor.black
-            ]
-            
-            let summary = "Financial Summary"
-            (summary as NSString).draw(at: CGPoint(x: 50, y: 140), withAttributes: summaryAttributes)
-            
-            // Add summary content
-            let contentFont = UIFont.systemFont(ofSize: 14)
-            let contentAttributes: [NSAttributedString.Key: Any] = [
-                .font: contentFont,
-                .foregroundColor: UIColor.black
-            ]
-            
-            let userName = "User: \(userManager.name)"
-            (userName as NSString).draw(at: CGPoint(x: 50, y: 180), withAttributes: contentAttributes)
-            
-            let balance = "Current Balance: \(userManager.currency)\(String(format: "%.2f", transactionManager.totalIncome() - transactionManager.totalExpense()))"
-            (balance as NSString).draw(at: CGPoint(x: 50, y: 200), withAttributes: contentAttributes)
-            
-            let income = "Total Income: \(userManager.currency)\(String(format: "%.2f", transactionManager.totalIncome()))"
-            (income as NSString).draw(at: CGPoint(x: 50, y: 220), withAttributes: contentAttributes)
-            
-            let expenses = "Total Expenses: \(userManager.currency)\(String(format: "%.2f", transactionManager.totalExpense()))"
-            (expenses as NSString).draw(at: CGPoint(x: 50, y: 240), withAttributes: contentAttributes)
-            
-            let monthlyIncome = "Monthly Income: \(userManager.currency)\(String(format: "%.2f", userManager.monthlyIncome))"
-            (monthlyIncome as NSString).draw(at: CGPoint(x: 50, y: 260), withAttributes: contentAttributes)
-            
-            let monthlyBudget = "Monthly Budget: \(userManager.currency)\(String(format: "%.2f", userManager.monthlyBudget))"
-            (monthlyBudget as NSString).draw(at: CGPoint(x: 50, y: 280), withAttributes: contentAttributes)
-            
-            if !userManager.financialGoal.isEmpty {
-                let financialGoal = "Financial Goal: \(userManager.financialGoal)"
-                (financialGoal as NSString).draw(at: CGPoint(x: 50, y: 300), withAttributes: contentAttributes)
-            }
-            
-            // Transaction History
-            let transactionsTitle = "Transaction History"
-            let transactionsTitleAttributes: [NSAttributedString.Key: Any] = [
-                .font: summaryFont,
-                .foregroundColor: UIColor.black
-            ]
-            (transactionsTitle as NSString).draw(at: CGPoint(x: 50, y: 340), withAttributes: transactionsTitleAttributes)
-            
-            // Add table headers
-            let headerAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 12, weight: .semibold),
-                .foregroundColor: UIColor.black
-            ]
-            
-            let headers = ["Date", "Type", "Category", "Amount", "Note"]
-            let columnWidths: [CGFloat] = [80, 70, 100, 80, 200]
-            var xPosition: CGFloat = 50
-            
-            for (index, header) in headers.enumerated() {
-                (header as NSString).draw(at: CGPoint(x: xPosition, y: 380), withAttributes: headerAttributes)
-                xPosition += columnWidths[index]
-            }
-            
-            // Draw a line under headers
-            let headerLine = UIBezierPath()
-            headerLine.move(to: CGPoint(x: 50, y: 395))
-            headerLine.addLine(to: CGPoint(x: pageWidth - 50, y: 395))
-            UIColor.lightGray.setStroke()
-            headerLine.lineWidth = 0.5
-            headerLine.stroke()
-            
-            // Add transaction rows
-            let rowAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 10),
-                .foregroundColor: UIColor.black
-            ]
-            
-            let dateFormatter2 = DateFormatter()
-            dateFormatter2.dateStyle = .short
-            
-            var yPosition: CGFloat = 410
-            let rowHeight: CGFloat = 20
+            let cgContext = context.cgContext
             var currentPage = 1
+            var yPosition: CGFloat = 0
             
-            for transaction in transactionManager.transactions {
+            func drawHeaderFooter() {
+                // Add decorative banner at top of page
+                let bannerHeight: CGFloat = 90
+                let gradient = CGGradient(
+                    colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                    colors: [UIColor(Theme.primary).cgColor, UIColor(Theme.primary.opacity(0.7)).cgColor] as CFArray,
+                    locations: [0, 1]
+                )!
+                
+                cgContext.saveGState()
+                cgContext.addRect(CGRect(x: 0, y: 0, width: pageWidth, height: bannerHeight))
+                cgContext.clip()
+                cgContext.drawLinearGradient(
+                    gradient,
+                    start: CGPoint(x: 0, y: 0),
+                    end: CGPoint(x: pageWidth, y: bannerHeight),
+                    options: []
+                )
+                cgContext.restoreGState()
+                
+                // App logo/branding
+                let logoSize: CGFloat = 60
+                let logoRect = CGRect(x: margin, y: 15, width: logoSize, height: logoSize)
+                let logoPath = UIBezierPath(roundedRect: logoRect, cornerRadius: 12)
+                UIColor.white.setFill()
+                logoPath.fill()
+                
+                // Draw the app logo or "M" for Muni
+                let logoText = "M"
+                let logoTextAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 32, weight: .black),
+                    .foregroundColor: UIColor(Theme.primary)
+                ]
+                let logoTextSize = (logoText as NSString).size(withAttributes: logoTextAttributes)
+                (logoText as NSString).draw(
+                    at: CGPoint(
+                        x: margin + (logoSize - logoTextSize.width) / 2,
+                        y: 15 + (logoSize - logoTextSize.height) / 2
+                    ),
+                    withAttributes: logoTextAttributes
+                )
+                
+                // Report title
+                let titleText = "Financial Report"
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 32, weight: .bold),
+                    .foregroundColor: UIColor.white
+                ]
+                let titleSize = (titleText as NSString).size(withAttributes: titleAttributes)
+                (titleText as NSString).draw(
+                    at: CGPoint(x: margin + logoSize + 20, y: (bannerHeight - titleSize.height) / 2),
+                    withAttributes: titleAttributes
+                )
+                
+                // Add date to header
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateStyle = .long
+                let dateText = dateFormatter.string(from: Date())
+                let dateAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 14),
+                    .foregroundColor: UIColor.white
+                ]
+                
+                let dateTextSize = (dateText as NSString).size(withAttributes: dateAttributes)
+                (dateText as NSString).draw(
+                    at: CGPoint(x: pageWidth - margin - dateTextSize.width, y: bannerHeight - 30),
+                    withAttributes: dateAttributes
+                )
+                
+                // Add footer with page number
+                let footerText = "Page \(currentPage)"
+                let footerAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 10),
+                    .foregroundColor: UIColor.gray
+                ]
+                let footerSize = (footerText as NSString).size(withAttributes: footerAttributes)
+                (footerText as NSString).draw(
+                    at: CGPoint(x: (pageWidth - footerSize.width) / 2, y: pageHeight - 30),
+                    withAttributes: footerAttributes
+                )
+                
+                // Start y position for content after header
+                yPosition = bannerHeight + 30
+            }
+            
+            func drawSection(title: String, content: @escaping () -> CGFloat) -> CGFloat {
+                let sectionTitleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 18, weight: .semibold),
+                    .foregroundColor: UIColor(Theme.primary)
+                ]
+                
                 // Check if we need a new page
-                if yPosition > pageHeight - 50 {
+                let titleHeight = (title as NSString).size(withAttributes: sectionTitleAttributes).height
+                if yPosition + titleHeight + 10 > pageHeight - 50 {
                     context.beginPage()
-                    yPosition = 50
-                    
-                    // Add page header on new page
-                    let pageHeader = "Muni Financial Report - Page \(currentPage + 1)"
-                    (pageHeader as NSString).draw(at: CGPoint(x: 50, y: yPosition), withAttributes: summaryAttributes)
-                    yPosition += 30
-                    
-                    // Redraw table headers on new page
-                    xPosition = 50
-                    for (index, header) in headers.enumerated() {
-                        (header as NSString).draw(at: CGPoint(x: xPosition, y: yPosition), withAttributes: headerAttributes)
-                        xPosition += columnWidths[index]
-                    }
-                    
-                    // Draw header line
-                    let newHeaderLine = UIBezierPath()
-                    newHeaderLine.move(to: CGPoint(x: 50, y: yPosition + 15))
-                    newHeaderLine.addLine(to: CGPoint(x: pageWidth - 50, y: yPosition + 15))
-                    UIColor.lightGray.setStroke()
-                    newHeaderLine.lineWidth = 0.5
-                    newHeaderLine.stroke()
-                    
-                    yPosition += 30
                     currentPage += 1
+                    drawHeaderFooter()
                 }
                 
-                // Draw transaction data
-                let date = dateFormatter2.string(from: transaction.date)
-                xPosition = 50
+                // Draw section title
+                (title as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: sectionTitleAttributes
+                )
+                yPosition += titleHeight + 10
                 
-                (date as NSString).draw(at: CGPoint(x: xPosition, y: yPosition), withAttributes: rowAttributes)
-                xPosition += columnWidths[0]
+                // Draw separator line
+                cgContext.setStrokeColor(UIColor(Theme.primary.opacity(0.3)).cgColor)
+                cgContext.setLineWidth(1)
+                cgContext.move(to: CGPoint(x: margin, y: yPosition))
+                cgContext.addLine(to: CGPoint(x: pageWidth - margin, y: yPosition))
+                cgContext.strokePath()
+                yPosition += 15
                 
-                (transaction.type.rawValue as NSString).draw(at: CGPoint(x: xPosition, y: yPosition), withAttributes: rowAttributes)
-                xPosition += columnWidths[1]
+                // Draw section content
+                let contentHeight = content()
+                yPosition += contentHeight + 30
                 
-                (transaction.category.rawValue as NSString).draw(at: CGPoint(x: xPosition, y: yPosition), withAttributes: rowAttributes)
-                xPosition += columnWidths[2]
-                
-                let amountString = "\(userManager.currency)\(String(format: "%.2f", transaction.amount))"
-                (amountString as NSString).draw(at: CGPoint(x: xPosition, y: yPosition), withAttributes: rowAttributes)
-                xPosition += columnWidths[3]
-                
-                (transaction.note as NSString).draw(at: CGPoint(x: xPosition, y: yPosition), withAttributes: rowAttributes)
-                
-                yPosition += rowHeight
+                return contentHeight
             }
             
-            // Add footer with page number
-            let footerText = "Page \(currentPage) of \(currentPage)"
-            let footerAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 10),
-                .foregroundColor: UIColor.gray
-            ]
-            let footerSize = (footerText as NSString).size(withAttributes: footerAttributes)
-            (footerText as NSString).draw(
-                at: CGPoint(x: (pageWidth - footerSize.width) / 2, y: pageHeight - 30),
-                withAttributes: footerAttributes
-            )
+            func drawTable(headers: [String], rows: [[String]], columnWidths: [CGFloat]) -> CGFloat {
+                let startY = yPosition
+                let rowHeight: CGFloat = 30
+                
+                // Calculate total width
+                let tableWidth = columnWidths.reduce(0, +)
+                
+                // Draw headers
+                let headerAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 12, weight: .bold),
+                    .foregroundColor: UIColor.white
+                ]
+                
+                // Header background
+                cgContext.setFillColor(UIColor(Theme.primary).cgColor)
+                cgContext.fill(CGRect(x: margin, y: yPosition, width: tableWidth, height: rowHeight))
+                
+                var xOffset = margin
+                for (index, header) in headers.enumerated() {
+                    let headerWidth = columnWidths[index]
+                    let rect = CGRect(x: xOffset, y: yPosition, width: headerWidth, height: rowHeight)
+                    
+                    // Center text in cell
+                    let textSize = (header as NSString).size(withAttributes: headerAttributes)
+                    let textX = xOffset + (headerWidth - textSize.width) / 2
+                    let textY = yPosition + (rowHeight - textSize.height) / 2
+                    
+                    (header as NSString).draw(
+                        at: CGPoint(x: textX, y: textY),
+                        withAttributes: headerAttributes
+                    )
+                    
+                    xOffset += headerWidth
+                }
+                
+                yPosition += rowHeight
+                
+                // Draw rows
+                let rowAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 11),
+                    .foregroundColor: UIColor.black
+                ]
+                
+                for (rowIndex, row) in rows.enumerated() {
+                    // Check if we need a new page
+                    if yPosition + rowHeight > pageHeight - 50 {
+                        context.beginPage()
+                        currentPage += 1
+                        drawHeaderFooter()
+                        
+                        // Redraw header on new page
+                        cgContext.setFillColor(UIColor(Theme.primary).cgColor)
+                        cgContext.fill(CGRect(x: margin, y: yPosition, width: tableWidth, height: rowHeight))
+                        
+                        xOffset = margin
+                        for (index, header) in headers.enumerated() {
+                            let headerWidth = columnWidths[index]
+                            let rect = CGRect(x: xOffset, y: yPosition, width: headerWidth, height: rowHeight)
+                            
+                            // Center text in cell
+                            let textSize = (header as NSString).size(withAttributes: headerAttributes)
+                            let textX = xOffset + (headerWidth - textSize.width) / 2
+                            let textY = yPosition + (rowHeight - textSize.height) / 2
+                            
+                            (header as NSString).draw(
+                                at: CGPoint(x: textX, y: textY),
+                                withAttributes: headerAttributes
+                            )
+                            
+                            xOffset += headerWidth
+                        }
+                        
+                        yPosition += rowHeight
+                    }
+                    
+                    // Row background (alternating)
+                    if rowIndex % 2 == 0 {
+                        cgContext.setFillColor(UIColor(white: 0.95, alpha: 1.0).cgColor)
+                    } else {
+                        cgContext.setFillColor(UIColor.white.cgColor)
+                    }
+                    cgContext.fill(CGRect(x: margin, y: yPosition, width: tableWidth, height: rowHeight))
+                    
+                    // Draw cell data
+                    xOffset = margin
+                    for (index, cell) in row.enumerated() {
+                        if index < columnWidths.count {
+                            let cellWidth = columnWidths[index]
+                            let cellAttributes = rowAttributes
+                            
+                            // Right-align amount columns
+                            var cellX = xOffset + 5
+                            if index == 3 { // Amount column
+                                let textSize = (cell as NSString).size(withAttributes: cellAttributes)
+                                cellX = xOffset + cellWidth - textSize.width - 5
+                            }
+                            
+                            let cellY = yPosition + (rowHeight - (cell as NSString).size(withAttributes: cellAttributes).height) / 2
+                            
+                            (cell as NSString).draw(
+                                at: CGPoint(x: cellX, y: cellY),
+                                withAttributes: cellAttributes
+                            )
+                            
+                            xOffset += cellWidth
+                        }
+                    }
+                    
+                    yPosition += rowHeight
+                    
+                    // Draw horizontal grid lines
+                    cgContext.setStrokeColor(UIColor.lightGray.cgColor)
+                    cgContext.setLineWidth(0.5)
+                    cgContext.move(to: CGPoint(x: margin, y: yPosition))
+                    cgContext.addLine(to: CGPoint(x: margin + tableWidth, y: yPosition))
+                    cgContext.strokePath()
+                }
+                
+                return yPosition - startY
+            }
+            
+            // Begin PDF
+            context.beginPage()
+            drawHeaderFooter()
+            
+            // User information section
+            drawSection(title: "Account Summary") {
+                let infoAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 14),
+                    .foregroundColor: UIColor.black
+                ]
+                
+                let valueAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 14, weight: .semibold),
+                    .foregroundColor: UIColor.black
+                ]
+                
+                let startY = yPosition
+                let lineHeight: CGFloat = 25
+                
+                // User name
+                let nameLabel = "Account Name:"
+                (nameLabel as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: infoAttributes
+                )
+                
+                let nameValue = userManager.name
+                (nameValue as NSString).draw(
+                    at: CGPoint(x: margin + 150, y: yPosition),
+                    withAttributes: valueAttributes
+                )
+                yPosition += lineHeight
+                
+                // Monthly income
+                let incomeLabel = "Monthly Income:"
+                (incomeLabel as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: infoAttributes
+                )
+                
+                let incomeValue = "\(userManager.currency)\(String(format: "%.2f", userManager.monthlyIncome))"
+                (incomeValue as NSString).draw(
+                    at: CGPoint(x: margin + 150, y: yPosition),
+                    withAttributes: valueAttributes
+                )
+                yPosition += lineHeight
+                
+                // Monthly budget
+                let budgetLabel = "Monthly Budget:"
+                (budgetLabel as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: infoAttributes
+                )
+                
+                let budgetValue = "\(userManager.currency)\(String(format: "%.2f", userManager.monthlyBudget))"
+                (budgetValue as NSString).draw(
+                    at: CGPoint(x: margin + 150, y: yPosition),
+                    withAttributes: valueAttributes
+                )
+                yPosition += lineHeight
+                
+                // Financial goal
+                if !userManager.financialGoal.isEmpty {
+                    let goalLabel = "Financial Goal:"
+                    (goalLabel as NSString).draw(
+                        at: CGPoint(x: margin, y: yPosition),
+                        withAttributes: infoAttributes
+                    )
+                    
+                    let goalValue = "\(userManager.financialGoal)"
+                    (goalValue as NSString).draw(
+                        at: CGPoint(x: margin + 150, y: yPosition),
+                        withAttributes: valueAttributes
+                    )
+                    yPosition += lineHeight
+                }
+                
+                // Current balance
+                let balanceLabel = "Current Balance:"
+                (balanceLabel as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: infoAttributes
+                )
+                
+                let balanceValue = "\(userManager.currency)\(String(format: "%.2f", transactionManager.balance()))"
+                let balanceAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+                    .foregroundColor: transactionManager.balance() >= 0 ? UIColor.systemGreen : UIColor.systemRed
+                ]
+                
+                (balanceValue as NSString).draw(
+                    at: CGPoint(x: margin + 150, y: yPosition),
+                    withAttributes: balanceAttributes
+                )
+                yPosition += lineHeight
+                
+                return yPosition - startY
+            }
+            
+            // Draw financial summary section with visual styling
+            drawSection(title: "Financial Summary") {
+                let startY = yPosition
+                let barHeight: CGFloat = 20
+                let barWidth: CGFloat = contentWidth
+                let labelAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 12),
+                    .foregroundColor: UIColor.black
+                ]
+                
+                // Total income
+                let totalIncome = transactionManager.totalIncome()
+                let incomeLabel = "Total Income: \(userManager.currency)\(String(format: "%.2f", totalIncome))"
+                (incomeLabel as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: labelAttributes
+                )
+                yPosition += 20
+                
+                // Income bar
+                cgContext.setFillColor(UIColor.systemGreen.cgColor)
+                cgContext.fill(CGRect(x: margin, y: yPosition, width: barWidth, height: barHeight))
+                yPosition += barHeight + 10
+                
+                // Total expenses
+                let totalExpense = transactionManager.totalExpense()
+                let expenseLabel = "Total Expenses: \(userManager.currency)\(String(format: "%.2f", totalExpense))"
+                (expenseLabel as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: labelAttributes
+                )
+                yPosition += 20
+                
+                // If income is greater than 0, calculate the expense ratio
+                if totalIncome > 0 {
+                    let expenseRatio = min(1.0, totalExpense / totalIncome)
+                    cgContext.setFillColor(UIColor.systemRed.cgColor)
+                    cgContext.fill(CGRect(x: margin, y: yPosition, width: barWidth * CGFloat(expenseRatio), height: barHeight))
+                }
+                yPosition += barHeight + 10
+                
+                // Balance
+                let balance = totalIncome - totalExpense
+                let balanceLabel = "Balance: \(userManager.currency)\(String(format: "%.2f", balance))"
+                let balanceAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+                    .foregroundColor: balance >= 0 ? UIColor.systemGreen : UIColor.systemRed
+                ]
+                (balanceLabel as NSString).draw(
+                    at: CGPoint(x: margin, y: yPosition),
+                    withAttributes: balanceAttributes
+                )
+                yPosition += 20
+                
+                // Draw a separator
+                cgContext.setStrokeColor(UIColor.lightGray.cgColor)
+                cgContext.setLineWidth(0.5)
+                cgContext.move(to: CGPoint(x: margin, y: yPosition + 10))
+                cgContext.addLine(to: CGPoint(x: pageWidth - margin, y: yPosition + 10))
+                cgContext.strokePath()
+                yPosition += 20
+                
+                return yPosition - startY
+            }
+            
+            // Draw transactions table
+            drawSection(title: "Transaction History") {
+                let startY = yPosition
+                
+                // Prepare transaction data for table
+                let headers = ["Date", "Type", "Category", "Amount", "Note"]
+                var rows: [[String]] = []
+                
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateStyle = .short
+                
+                for transaction in transactionManager.transactions.sorted(by: { $0.date > $1.date }) {
+                    let date = dateFormatter.string(from: transaction.date)
+                    let type = transaction.type.rawValue
+                    let category = transaction.category.rawValue
+                    let amount = "\(userManager.currency)\(String(format: "%.2f", transaction.amount))"
+                    let note = transaction.note
+                    
+                    rows.append([date, type, category, amount, note])
+                }
+                
+                // Draw the table
+                let columnWidths: [CGFloat] = [80, 80, 100, 100, contentWidth - 360]
+                let tableHeight = drawTable(headers: headers, rows: rows, columnWidths: columnWidths)
+                
+                return tableHeight
+            }
         }
     }
     
@@ -1167,4 +1312,14 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
         // Nothing to update
     }
-} 
+}
+
+// Custom button style for scale animation
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
