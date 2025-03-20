@@ -86,7 +86,7 @@ iOS Developer & Designer
 
 ## License
 
-Copyright © 2023 Yaduraj Singh. All rights reserved.
+Copyright © 2025 Yaduraj Singh. All rights reserved.
 
 ## Acknowledgements
 
