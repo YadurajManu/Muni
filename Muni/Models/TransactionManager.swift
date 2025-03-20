@@ -86,4 +86,27 @@ class TransactionManager: ObservableObject {
         
         return expensesByCategory
     }
+    
+    // Add a method to get the top expense category
+    func getTopExpenseCategory() -> (TransactionCategory?, Double) {
+        let expensesByCategory = transactions
+            .filter { $0.type == .expense }
+            .reduce(into: [TransactionCategory: Double]()) { result, transaction in
+                result[transaction.category, default: 0] += transaction.amount
+            }
+        
+        if let topCategory = expensesByCategory.max(by: { $0.value < $1.value }) {
+            return (topCategory.key, topCategory.value)
+        }
+        
+        return (nil, 0)
+    }
+    
+    // Add a method to get monthly expenses for a specific month and year
+    func getMonthlyExpenses(for month: Int, year: Int) -> Double {
+        let monthlyTransactions = getTransactionsForMonth(month: month, year: year)
+        return monthlyTransactions
+            .filter { $0.type == .expense }
+            .reduce(0) { $0 + $1.amount }
+    }
 } 

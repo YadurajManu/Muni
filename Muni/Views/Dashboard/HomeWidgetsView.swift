@@ -74,7 +74,10 @@ class WidgetManager: ObservableObject {
                 AnyHomeWidget(BalanceWidget()),
                 AnyHomeWidget(SpendingTrendWidget()),
                 AnyHomeWidget(BudgetWidget()),
-                AnyHomeWidget(GoalWidget())
+                AnyHomeWidget(GoalWidget()),
+                AnyHomeWidget(ExpenseCategoryWidget()),
+                AnyHomeWidget(SavedThisMonthWidget()),
+                AnyHomeWidget(AIAssistantWidget())
             ]
             saveWidgets()
         }
@@ -125,7 +128,8 @@ class WidgetManager: ObservableObject {
             BudgetWidget.self,
             GoalWidget.self,
             ExpenseCategoryWidget.self,
-            SavedThisMonthWidget.self
+            SavedThisMonthWidget.self,
+            AIAssistantWidget.self
         ]
         
         // Try to find a matching widget with the ID
@@ -145,7 +149,8 @@ class WidgetManager: ObservableObject {
             AnyHomeWidget(BudgetWidget()),
             AnyHomeWidget(GoalWidget()),
             AnyHomeWidget(ExpenseCategoryWidget()),
-            AnyHomeWidget(SavedThisMonthWidget())
+            AnyHomeWidget(SavedThisMonthWidget()),
+            AnyHomeWidget(AIAssistantWidget())
         ]
     }
 }
@@ -811,6 +816,97 @@ struct SavedThisMonthWidgetView: View {
     }
 }
 
+// MARK: - AI Assistant Widget
+struct AIAssistantWidget: HomeWidget {
+    var id = UUID()
+    var title = "AI Assistant"
+    var description = "Get financial advice and insights"
+    var iconName = "bubble.left.and.bubble.right.fill"
+    
+    var view: AnyView {
+        AnyView(AIAssistantWidgetView())
+    }
+    
+    init() {}
+    
+    init?(id: UUID) {
+        self.id = id
+        return
+    }
+}
+
+struct AIAssistantWidgetView: View {
+    @EnvironmentObject var transactionManager: TransactionManager
+    @EnvironmentObject var userManager: UserManager
+    @State private var showingAIAssistant = false
+    
+    private var financialTip: String {
+        let tips = [
+            "Saving just ₹100 a day adds up to ₹36,500 a year!",
+            "Try the 50/30/20 rule: 50% needs, 30% wants, 20% savings.",
+            "Track every expense to find hidden saving opportunities.",
+            "Review your subscriptions regularly to avoid waste.",
+            "Try to keep high-interest debt like credit cards to a minimum."
+        ]
+        return tips.randomElement() ?? tips[0]
+    }
+    
+    var body: some View {
+        Button(action: {
+            showingAIAssistant = true
+        }) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white)
+                    
+                    Text("AI Assistant")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                
+                Spacer()
+                
+                Text("\"" + financialTip + "\"")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                
+                HStack {
+                    Text("Ask me anything")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "arrow.forward.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding()
+            .background(LinearGradient(
+                gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.7)]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+            .cornerRadius(16)
+        }
+        .sheet(isPresented: $showingAIAssistant) {
+            AIAssistantView()
+                .environmentObject(transactionManager)
+                .environmentObject(userManager)
+        }
+    }
+}
+
 // MARK: - Widget Picker View
 struct WidgetPickerView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -873,6 +969,8 @@ struct WidgetPickerView: View {
             return ExpenseCategoryWidget()
         case "Saved This Month":
             return SavedThisMonthWidget()
+        case "AI Assistant":
+            return AIAssistantWidget()
         default:
             return BalanceWidget() // Default fallback
         }

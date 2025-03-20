@@ -13,6 +13,7 @@ struct DashboardView: View {
     @State private var selectedMonth = Calendar.current.component(.month, from: Date())
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
     @State private var showingGoalDetails = false
+    @State private var showingAIAssistant = false
     
     var body: some View {
         NavigationView {
@@ -74,8 +75,23 @@ struct DashboardView: View {
             }
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Dashboard")
+            .navigationBarItems(
+                trailing: 
+                    Button(action: {
+                        showingAIAssistant = true
+                    }) {
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(Theme.primary)
+                    }
+            )
             .sheet(isPresented: $showingGoalDetails) {
                 GoalDetailView(goal: userManager.financialGoal)
+                    .environmentObject(transactionManager)
+                    .environmentObject(userManager)
+            }
+            .sheet(isPresented: $showingAIAssistant) {
+                AIAssistantView()
                     .environmentObject(transactionManager)
                     .environmentObject(userManager)
             }
