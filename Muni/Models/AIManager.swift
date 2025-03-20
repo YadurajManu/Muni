@@ -8,12 +8,6 @@
 import Foundation
 import SwiftUI
 
-struct ChatMessage: Identifiable {
-    var id = UUID()
-    var content: String
-    var isUser: Bool
-}
-
 class AIManager: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoading = false

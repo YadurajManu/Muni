@@ -104,7 +104,7 @@ struct AIAssistantView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message)
+                        MessageBubbleView(message: message)
                             .id(message.id)
                     }
                     
@@ -118,13 +118,15 @@ struct AIAssistantView: View {
             }
             .onChange(of: viewModel.messages.count) { _ in
                 withAnimation {
-                    scrollView.scrollTo(viewModel.messages.last?.id ?? "typingIndicator", anchor: .bottom)
+                    scrollView.scrollTo(viewModel.messages.last?.id, anchor: .bottom)
                 }
             }
             .onChange(of: viewModel.isTyping) { isTyping in
                 if isTyping {
+                    // Use a constant string ID for the typing indicator rather than the string itself
+                    let typingIndicatorID = "typingIndicator"
                     withAnimation {
-                        scrollView.scrollTo("typingIndicator", anchor: .bottom)
+                        scrollView.scrollTo(typingIndicatorID, anchor: .bottom)
                     }
                 }
             }
@@ -219,7 +221,7 @@ struct AIAssistantView: View {
 }
 
 // Message bubble component
-struct MessageBubble: View {
+struct MessageBubbleView: View {
     let message: ChatMessage
     @Environment(\.colorScheme) private var colorScheme
     
@@ -247,7 +249,7 @@ struct MessageBubble: View {
                 // Optional action buttons for assistant messages
                 if !message.isUser && !message.actions.isEmpty {
                     HStack(spacing: 8) {
-                        ForEach(message.actions, id: \.self) { action in
+                        ForEach(message.actions) { action in
                             Text(action.title)
                                 .font(.system(size: 14))
                                 .foregroundColor(Theme.primary)
@@ -360,29 +362,7 @@ struct TypingIndicator: View {
     }
 }
 
-// MARK: - View Model and Data Models
-
-// Action button for assistant responses
-struct MessageAction {
-    let title: String
-    let action: () -> Void
-}
-
-// Chat message model
-struct ChatMessage: Identifiable, Codable {
-    let id: UUID
-    let content: String
-    let isUser: Bool
-    let timestamp: Date
-    
-    // Actions can't be encoded/decoded directly
-    var actions: [MessageAction] = []
-    
-    // Coding keys for serialization
-    enum CodingKeys: String, CodingKey {
-        case id, content, isUser, timestamp
-    }
-}
+// MARK: - View Model
 
 // View model for AI assistant
 class AIAssistantViewModel: ObservableObject {
@@ -490,8 +470,9 @@ class AIAssistantViewModel: ObservableObject {
         }
         // Spending analysis questions
         else if lowerMessage.contains("spend") || lowerMessage.contains("spending") {
-            let (category, amount) = tm.getTopExpenseCategory()
-            let categoryName = category?.rawValue ?? "unknown"
+            let topCategoryResult = tm.getTopExpenseCategory()
+            let categoryName = topCategoryResult.0?.rawValue ?? "unknown"
+            let amount = topCategoryResult.1
             
             responseContent = "Your highest spending category is \(categoryName) at \(um.currency)\(String(format: "%.2f", amount)). Would you like me to analyze your spending patterns in more detail?"
             actions.append(MessageAction(title: "Analyze Spending", action: {}))
@@ -601,9 +582,10 @@ class AIAssistantViewModel: ObservableObject {
             }
             
             // If user is spending a lot in one category
-            if let (category, _) = transactionManager.getTopExpenseCategory(), 
-               let categoryName = category?.rawValue.lowercased() {
-                suggestions.append("How can I reduce \(categoryName) spending?")
+            let topCategoryResult = transactionManager.getTopExpenseCategory()
+            if let category = topCategoryResult.0 {
+               let categoryName = category.rawValue.lowercased()
+               suggestions.append("How can I reduce \(categoryName) spending?")
             }
         }
         

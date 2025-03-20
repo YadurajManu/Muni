@@ -22,7 +22,7 @@ struct ChatView: View {
                     ScrollView {
                         LazyVStack(spacing: Theme.paddingMedium) {
                             ForEach(aiManager.messages) { message in
-                                MessageBubble(message: message)
+                                MessageBubbleView(message: message)
                             }
                             
                             if aiManager.isLoading {
@@ -50,58 +50,36 @@ struct ChatView: View {
                         .background(Theme.text.opacity(0.1))
                     
                     HStack {
-                        TextField("Ask me anything about finances...", text: $messageText)
-                            .padding()
-                            .background(Theme.secondary.opacity(0.3))
-                            .cornerRadius(Theme.cornerRadiusMedium)
+                        TextField("Ask me anything...", text: $messageText)
+                            .padding(.horizontal)
+                            .frame(height: 52)
                             .focused($isInputFocused)
                         
-                        Button(action: sendMessage) {
+                        Button(action: {
+                            sendMessage()
+                        }) {
                             Image(systemName: "arrow.up.circle.fill")
-                                .resizable()
-                                .frame(width: 32, height: 32)
-                                .foregroundColor(messageText.isEmpty ? Color.gray : Theme.primary)
+                                .font(.system(size: 30))
+                                .foregroundColor(messageText.isEmpty ? .gray : Theme.primary)
                         }
                         .disabled(messageText.isEmpty || aiManager.isLoading)
+                        .padding(.trailing)
                     }
-                    .padding()
-                    .background(Theme.background)
                 }
+                .background(Theme.background)
+                .shadow(color: Color.black.opacity(0.05), radius: 5, y: -5)
             }
             .navigationTitle("Financial Assistant")
         }
     }
     
     private func sendMessage() {
-        guard !messageText.isEmpty else { return }
-        
-        let message = messageText
+        let message = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         messageText = ""
         
+        guard !message.isEmpty else { return }
+        
         aiManager.sendMessage(message, transactionManager: transactionManager, userManager: userManager)
-    }
-}
-
-struct MessageBubble: View {
-    let message: ChatMessage
-    
-    var body: some View {
-        HStack {
-            if message.isUser {
-                Spacer()
-            }
-            
-            Text(message.content)
-                .padding()
-                .background(message.isUser ? Theme.primary : Theme.secondary.opacity(0.5))
-                .foregroundColor(message.isUser ? .white : Theme.text)
-                .cornerRadius(Theme.cornerRadiusMedium)
-                .frame(maxWidth: 300, alignment: message.isUser ? .trailing : .leading)
-            
-            if !message.isUser {
-                Spacer()
-            }
-        }
     }
 }
 
@@ -109,29 +87,36 @@ struct LoadingIndicator: View {
     @State private var isAnimating = false
     
     var body: some View {
-        HStack {
+        HStack(spacing: 6) {
             Circle()
-                .fill(Theme.primary.opacity(0.5))
-                .frame(width: 10, height: 10)
-                .scaleEffect(isAnimating ? 1 : 0.5)
-                .animation(Animation.easeInOut(duration: 0.4).repeatForever().delay(0), value: isAnimating)
+                .frame(width: 8, height: 8)
+                .opacity(isAnimating ? 0.3 : 1)
+                .animation(
+                    Animation.easeInOut(duration: 0.8)
+                        .repeatForever(autoreverses: true)
+                        .delay(0)
+                , value: isAnimating)
             
             Circle()
-                .fill(Theme.primary.opacity(0.5))
-                .frame(width: 10, height: 10)
-                .scaleEffect(isAnimating ? 1 : 0.5)
-                .animation(Animation.easeInOut(duration: 0.4).repeatForever().delay(0.2), value: isAnimating)
+                .frame(width: 8, height: 8)
+                .opacity(isAnimating ? 0.3 : 1)
+                .animation(
+                    Animation.easeInOut(duration: 0.8)
+                        .repeatForever(autoreverses: true)
+                        .delay(0.2)
+                , value: isAnimating)
             
             Circle()
-                .fill(Theme.primary.opacity(0.5))
-                .frame(width: 10, height: 10)
-                .scaleEffect(isAnimating ? 1 : 0.5)
-                .animation(Animation.easeInOut(duration: 0.4).repeatForever().delay(0.4), value: isAnimating)
+                .frame(width: 8, height: 8)
+                .opacity(isAnimating ? 0.3 : 1)
+                .animation(
+                    Animation.easeInOut(duration: 0.8)
+                        .repeatForever(autoreverses: true)
+                        .delay(0.4)
+                , value: isAnimating)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(Theme.secondary.opacity(0.5))
-        .cornerRadius(Theme.cornerRadiusMedium)
+        .foregroundColor(Theme.text.opacity(0.5))
+        .padding()
         .onAppear {
             isAnimating = true
         }
