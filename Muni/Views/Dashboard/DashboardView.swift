@@ -176,10 +176,32 @@ struct FinancialGoalView: View {
     }
     
     private var goalProgress: Double {
-        // This is a placeholder. In a real app, you'd calculate this based on
-        // the specific goal type and transaction data
-        let randomProgress = Double.random(in: 0.1...0.9)
-        return randomProgress
+        return FinancialAnalyticsService.shared.calculateGoalProgress(
+            transactions: transactionManager.transactions,
+            goal: goal,
+            monthlyIncome: userManager.monthlyIncome
+        )
+    }
+    
+    private var monthsToGoal: Int {
+        return FinancialAnalyticsService.shared.calculateMonthsToGoal(
+            transactions: transactionManager.transactions,
+            goal: goal,
+            monthlyIncome: userManager.monthlyIncome
+        )
+    }
+    
+    private var targetDate: String {
+        let calendar = Calendar.current
+        let currentDate = Date()
+        
+        if let futureDate = calendar.date(byAdding: .month, value: monthsToGoal, to: currentDate) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM yyyy" // Format as "Jan 2023"
+            return formatter.string(from: futureDate)
+        }
+        
+        return "Unknown"
     }
     
     var body: some View {
@@ -232,9 +254,15 @@ struct FinancialGoalView: View {
                     
                     Spacer()
                     
-                    Text("Tap for details")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.primary)
+                    if monthsToGoal < 36 {
+                        Text("Target: \(targetDate)")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.primary)
+                    } else {
+                        Text("Tap for details")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.primary)
+                    }
                 }
             }
         }
@@ -249,32 +277,35 @@ struct SmartInsightsView: View {
     @EnvironmentObject private var transactionManager: TransactionManager
     @EnvironmentObject private var userManager: UserManager
     @State private var showingBudgetPlanner = false
+    @State private var currentInsightIndex = 0
     let selectedMonth: Int
     let selectedYear: Int
     
+    private var spendingTrends: [CategoryAnalytics] {
+        return FinancialAnalyticsService.shared.analyzeSpendingTrends(
+            transactions: transactionManager.transactions
+        )
+    }
+    
     private var primarySpendingCategory: (TransactionCategory, Double)? {
-        let expenses = transactionManager.getMonthlyExpensesByCategory(month: selectedMonth, year: selectedYear)
-        return expenses.max(by: { $0.value < $1.value })
-    }
-    
-    private var spendingTrend: String {
-        // In a real app, you'd calculate the trend by comparing with previous months
-        let trends = ["increasing", "decreasing", "stable"]
-        return trends.randomElement() ?? "stable"
-    }
-    
-    private var insightMessage: String {
-        if let (category, amount) = primarySpendingCategory {
-            if spendingTrend == "increasing" {
-                return "Your \(category.rawValue.lowercased()) spending is trending up. Consider setting a budget limit for this category."
-            } else if spendingTrend == "decreasing" {
-                return "Great job reducing your \(category.rawValue.lowercased()) expenses! Keep it up."
-            } else {
-                return "Your largest expense is \(category.rawValue.lowercased()) at \(userManager.currency)\(String(format: "%.0f", amount))."
-            }
-        } else {
-            return "Add some transactions to see personalized insights."
+        if spendingTrends.isEmpty {
+            return nil
         }
+        return (spendingTrends[0].category, spendingTrends[0].currentAmount)
+    }
+    
+    private var insights: [String] {
+        return FinancialAnalyticsService.shared.generateSmartInsights(
+            transactions: transactionManager.transactions, 
+            monthlyIncome: userManager.monthlyIncome
+        )
+    }
+    
+    private var currentInsight: String {
+        if insights.isEmpty {
+            return "Add more transactions to see personalized insights."
+        }
+        return insights[min(currentInsightIndex, insights.count - 1)]
     }
     
     var body: some View {
@@ -307,25 +338,56 @@ struct SmartInsightsView: View {
                         .clipShape(Circle())
                 }
                 
-                Text(insightMessage)
+                Text(currentInsight)
                     .font(.system(size: Theme.bodySize))
                     .foregroundColor(Theme.text)
                     .fixedSize(horizontal: false, vertical: true)
+                    .onTapGesture {
+                        withAnimation {
+                            // Cycle through insights
+                            currentInsightIndex = (currentInsightIndex + 1) % max(1, insights.count)
+                        }
+                    }
             }
             
-            if let (category, amount) = primarySpendingCategory {
-                Button(action: {
-                    showingBudgetPlanner = true
-                }) {
-                    Text("Set \(category.rawValue) Budget")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(Theme.primary)
-                        .cornerRadius(8)
+            if insights.count > 1 {
+                HStack(spacing: 4) {
+                    ForEach(0..<min(insights.count, 5), id: \.self) { index in
+                        Circle()
+                            .fill(index == currentInsightIndex ? Theme.primary : Theme.secondary.opacity(0.5))
+                            .frame(width: 6, height: 6)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, -4)
+            }
+            
+            if let (category, _) = primarySpendingCategory, 
+               let categoryAnalytic = spendingTrends.first(where: { $0.category == category }) {
+                HStack {
+                    // Category trend icon
+                    Image(systemName: categoryAnalytic.trend.icon)
+                        .foregroundColor(Color(categoryAnalytic.trend.color))
+                    
+                    Text("\(Int(abs(categoryAnalytic.percentageChange)))% \(categoryAnalytic.trend == .increasing ? "increase" : categoryAnalytic.trend == .decreasing ? "decrease" : "change") from last period")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.text.opacity(0.8))
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        showingBudgetPlanner = true
+                    }) {
+                        Text("Set Budget")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12)
+                            .background(Theme.primary)
+                            .cornerRadius(8)
+                    }
+                }
+                .padding(.top, 8)
             }
         }
         .padding()
@@ -346,6 +408,41 @@ struct GoalDetailView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var showingBudgetPlanner = false
     let goal: String
+    
+    private var goalProgress: Double {
+        return FinancialAnalyticsService.shared.calculateGoalProgress(
+            transactions: transactionManager.transactions,
+            goal: goal,
+            monthlyIncome: userManager.monthlyIncome
+        )
+    }
+    
+    private var monthsToGoal: Int {
+        return FinancialAnalyticsService.shared.calculateMonthsToGoal(
+            transactions: transactionManager.transactions,
+            goal: goal,
+            monthlyIncome: userManager.monthlyIncome
+        )
+    }
+    
+    private var projectedSavings: [Double] {
+        // Calculate current savings
+        let savingsTransactions = transactionManager.transactions.filter {
+            $0.type == .income && ($0.category == .miscellaneous || $0.category == .investment) 
+        }
+        let currentSavings = savingsTransactions.reduce(0) { $0 + $1.amount }
+        
+        // Recommended monthly contribution (20% of income)
+        let monthlyContribution = userManager.monthlyIncome * 0.2
+        
+        // Project growth over next 6 months
+        return FinancialAnalyticsService.shared.projectSavingsGrowth(
+            currentSavings: currentSavings,
+            monthlyContribution: monthlyContribution,
+            growthRate: 0.05, // 5% annual return
+            months: 6
+        )
+    }
     
     var body: some View {
         NavigationView {
@@ -415,14 +512,25 @@ struct GoalDetailView: View {
             recommendationRow(
                 icon: "dollarsign.circle.fill",
                 title: "Save More",
-                description: "Allocate ₹\(Int(userManager.monthlyIncome * 0.1)) monthly toward your goal"
+                description: "Allocate ₹\(Int(userManager.monthlyIncome * 0.2)) monthly toward your goal"
             )
             
-            recommendationRow(
-                icon: "chart.pie.fill",
-                title: "Optimize Budget",
-                description: "Review and adjust your monthly budget allocation"
-            )
+            if let (topCategory, _) = transactionManager.getMonthlyExpensesByCategory(
+                month: Calendar.current.component(.month, from: Date()),
+                year: Calendar.current.component(.year, from: Date())
+            ).max(by: { $0.value < $1.value }) {
+                recommendationRow(
+                    icon: "chart.pie.fill",
+                    title: "Focus Area",
+                    description: "Your highest expense is \(topCategory.rawValue.lowercased()). Look for ways to optimize."
+                )
+            } else {
+                recommendationRow(
+                    icon: "chart.pie.fill",
+                    title: "Optimize Budget",
+                    description: "Review and adjust your monthly budget allocation"
+                )
+            }
         }
         .padding()
         .background(Theme.background)
@@ -455,25 +563,72 @@ struct GoalDetailView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Theme.text)
             
-            // Placeholder for chart - in a real app, you'd implement a proper chart
-            HStack(spacing: 0) {
-                ForEach(0..<6) { month in
-                    VStack {
-                        Rectangle()
-                            .fill(Theme.primary.opacity(0.7 - Double(month) * 0.1))
-                            .frame(height: 100 - Double(month) * 12)
-                            .cornerRadius(4)
+            // Progress bar
+            VStack(alignment: .leading, spacing: 12) {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Background
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 12)
                         
-                        Text("M\(month+1)")
-                            .font(.system(size: 12))
-                            .foregroundColor(Theme.text.opacity(0.8))
+                        // Progress
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Theme.primary.opacity(0.8))
+                            .frame(width: geometry.size.width * goalProgress, height: 12)
                     }
-                    .frame(maxWidth: .infinity)
+                }
+                .frame(height: 12)
+                
+                HStack {
+                    Text("\(Int(goalProgress * 100))% Complete")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Theme.text)
+                    
+                    Spacer()
+                    
+                    if monthsToGoal < 36 {
+                        let months = monthsToGoal <= 1 ? "1 month" : "\(monthsToGoal) months"
+                        Text("\(months) remaining")
+                            .font(.system(size: 16))
+                            .foregroundColor(Theme.primary)
+                    }
                 }
             }
-            .padding(.vertical)
+            .padding(.bottom, 10)
             
-            Text("At your current rate, you'll reach your goal in approximately 6 months")
+            // Projected growth chart 
+            if !projectedSavings.isEmpty {
+                Text("Projected Savings Growth")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                    .padding(.top, 10)
+                
+                // Chart showing projected savings
+                HStack(spacing: 0) {
+                    ForEach(0..<projectedSavings.count, id: \.self) { index in
+                        VStack {
+                            // Normalize height based on max value
+                            let maxValue = projectedSavings.max() ?? 1
+                            let height = (projectedSavings[index] / maxValue) * 100
+                            
+                            Rectangle()
+                                .fill(Theme.primary.opacity(0.7 - Double(index) * 0.05))
+                                .frame(height: CGFloat(height))
+                                .cornerRadius(4)
+                            
+                            Text("M\(index+1)")
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.text.opacity(0.8))
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: 140)
+                .padding(.vertical)
+            }
+            
+            Text("At your current rate, you'll reach your goal in approximately \(monthsToGoal) months")
                 .font(.system(size: 14))
                 .foregroundColor(Theme.text.opacity(0.7))
                 .multilineTextAlignment(.center)

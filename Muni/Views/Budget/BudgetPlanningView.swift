@@ -56,7 +56,7 @@ struct BudgetPlanningView: View {
                 }
             })
             .onAppear {
-                generateRecommendations()
+                loadBudgetAllocations()
             }
             .alert(isPresented: $showingSaveConfirmation) {
                 Alert(
@@ -380,13 +380,39 @@ struct BudgetPlanningView: View {
         if totalPercentage == 100 {
             allocations = editedAllocations
             isEditing = false
+            
+            // Save budget allocations to UserDefaults
+            saveBudgetAllocations()
+            
             showingSaveConfirmation = true
         } else {
-            // In a real app, show an alert about the percentage not adding up to 100%
+            // Normalize allocations to ensure they sum to 100%
             normalizeAllocations()
             allocations = editedAllocations
+            
+            // Save budget allocations to UserDefaults
+            saveBudgetAllocations()
+            
             isEditing = false
             showingSaveConfirmation = true
+        }
+    }
+    
+    private func saveBudgetAllocations() {
+        let encoder = JSONEncoder()
+        
+        // Create a simple dictionary representation of allocations
+        let allocationsData: [[String: Any]] = allocations.map {
+            [
+                "category": $0.category.rawValue,
+                "amount": $0.amount,
+                "percentage": $0.percentage
+            ]
+        }
+        
+        // Save to UserDefaults
+        if let encodedData = try? JSONSerialization.data(withJSONObject: allocationsData) {
+            UserDefaults.standard.set(encodedData, forKey: "budgetAllocations")
         }
     }
     
@@ -406,5 +432,40 @@ struct BudgetPlanningView: View {
             editedAllocations[i].percentage = normalizedPercentage
             editedAllocations[i].amount = userManager.monthlyIncome * (normalizedPercentage / 100)
         }
+    }
+    
+    private func loadBudgetAllocations() {
+        // First check if there are saved allocations
+        if let encodedData = UserDefaults.standard.data(forKey: "budgetAllocations"),
+           let savedAllocations = try? JSONSerialization.jsonObject(with: encodedData) as? [[String: Any]] {
+            
+            // Deserialize the allocations
+            var loadedAllocations: [BudgetAllocation] = []
+            
+            for item in savedAllocations {
+                guard let categoryString = item["category"] as? String,
+                      let amount = item["amount"] as? Double,
+                      let percentage = item["percentage"] as? Double,
+                      let category = TransactionCategory(rawValue: categoryString) else {
+                    continue
+                }
+                
+                loadedAllocations.append(BudgetAllocation(
+                    category: category,
+                    amount: amount,
+                    percentage: percentage
+                ))
+            }
+            
+            // If we have valid allocations, use them
+            if !loadedAllocations.isEmpty {
+                allocations = loadedAllocations
+                editedAllocations = loadedAllocations
+                return
+            }
+        }
+        
+        // Otherwise, generate new recommendations
+        generateRecommendations()
     }
 } 
